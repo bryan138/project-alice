@@ -283,6 +283,11 @@ def process_sample_bufffer(samples):
     xf = np.linspace(0.0, 1.0 / (2.0 * 1 / SAMPLING_RATE), SAMPLE_BUFFER_SIZE / 2)
     trimmedFFT = np.abs(fft[:SAMPLE_BUFFER_SIZE//2]);
 
+    fftData = np.hstack([trimmedFFT, np.zeros((960 - trimmedFFT.real.shape[0]))])
+    fftIP = np.interp(fftData, [0.0, 20.0], [-0.75, 0.75])
+    fftData = fftIP
+    lines[1].set_ydata(fftData)
+
     peaks = detect_peaks(trimmedFFT, mpd=15)
     peaks = sorted(peaks, key=lambda x: trimmedFFT[x])
     peakA = xf[peaks[-2]]
@@ -332,8 +337,10 @@ def update_plot(frame):
         shift = len(data)
         plotdata = np.roll(plotdata, -shift, axis=0)
         plotdata[-shift:, :] = data
+
     for column, line in enumerate(lines):
-        line.set_ydata(plotdata[:, column])
+        if column == 0:
+            line.set_ydata(plotdata[:, column])
     return lines
 
 
@@ -353,7 +360,7 @@ try:
     print('SAMPLE RATE:', args.samplerate, 'DOWNSAMPLE', args.downsample)
 
     length = int(args.window * args.samplerate / (1000 * args.downsample))
-    plotdata = np.zeros((length, len(args.channels)))
+    plotdata = np.zeros((length, len(args.channels) + 1))
 
     fig, ax = plt.subplots()
     lines = ax.plot(plotdata)
