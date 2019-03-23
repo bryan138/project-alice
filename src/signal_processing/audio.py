@@ -273,7 +273,15 @@ args = parser.parse_args()
 if any(c < 1 for c in args.channels):
     parser.error('argument CHANNEL: must be >= 1')
 mapping = [c - 1 for c in args.channels]  # Channel numbers start with 1
+
 q = queue.Queue()
+samples = np.array([])
+
+def process_sample_bufffer(samples):
+    global fft
+    fft = scipy.fftpack.fft(samples)
+    xf = np.linspace(0.0, 1.0 / (2.0 * 1 / SAMPLING_RATE), SAMPLE_BUFFER_SIZE / 2)
+    trimmedFFT = np.abs(fft[:SAMPLE_BUFFER_SIZE//2]);
 
 
 def audio_callback(indata, frames, time, status):
@@ -283,14 +291,22 @@ def audio_callback(indata, frames, time, status):
     # Fancy indexing with mapping creates a (necessary!) copy:
     q.put(indata[::args.downsample, mapping])
 
+    global samples
+    if samples.shape[0] < SAMPLE_BUFFER_SIZE:
+        n = min(indata.shape[0], SAMPLE_BUFFER_SIZE - samples.shape[0])
+        samples = np.append(samples, indata[:n])
+
+        if (samples.shape[0] == SAMPLE_BUFFER_SIZE):
+            process_sample_bufffer(samples)
+            samples = np.array([])
 
 def update_plot(frame):
-    """This is called by matplotlib for each plot update.
-
+    """
+    This is called by matplotlib for each plot update.
     Typically, audio callbacks happen more frequently than plot updates,
     therefore the queue tends to contain multiple blocks of audio data.
-
     """
+
     global plotdata
     while True:
         try:
