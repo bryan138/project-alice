@@ -283,6 +283,22 @@ def process_sample_bufffer(samples):
     xf = np.linspace(0.0, 1.0 / (2.0 * 1 / SAMPLING_RATE), SAMPLE_BUFFER_SIZE / 2)
     trimmedFFT = np.abs(fft[:SAMPLE_BUFFER_SIZE//2]);
 
+    peaks = detect_peaks(trimmedFFT, mpd=15)
+    peaks = sorted(peaks, key=lambda x: trimmedFFT[x])
+    peakA = xf[peaks[-2]]
+    peakB = xf[peaks[-1]]
+
+    res = 'null'
+    resDiff = float('Inf')
+    for i, tone in enumerate(DTMF):
+        difference = abs(peakA - tone[0]) + abs(peakB - tone[1])
+
+        if (difference < resDiff):
+            res = DTMF_CODE[i]
+            resDiff = difference
+
+    if resDiff < 300:
+        print('RES', res, resDiff)
 
 def audio_callback(indata, frames, time, status):
     """This is called (from a separate thread) for each audio block."""
