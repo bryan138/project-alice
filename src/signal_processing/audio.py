@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
-"""Plot the live microphone signal(s) with matplotlib.
 
-Matplotlib and NumPy have to be installed.
-
-"""
 import argparse
 import queue
 import sys
 
+SAMPLING_RATE = 4800
 
 def int_or_str(text):
-    """Helper function for argument parsing."""
     try:
         return int(text)
     except ValueError:
         return text
-
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument(
@@ -35,7 +30,7 @@ parser.add_argument(
 parser.add_argument(
     '-r', '--samplerate', type=float, help='sampling rate of audio device')
 parser.add_argument(
-    '-n', '--downsample', type=int, default=10, metavar='N',
+    '-n', '--downsample', type=int, default=1, metavar='N',
     help='display every Nth sample (default: %(default)s)')
 parser.add_argument(
     'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
@@ -85,9 +80,13 @@ try:
     if args.list_devices:
         print(sd.query_devices())
         parser.exit(0)
+
     if args.samplerate is None:
-        device_info = sd.query_devices(args.device, 'input')
-        args.samplerate = device_info['default_samplerate']
+        # device_info = sd.query_devices(args.device, 'input')
+        # args.samplerate = device_info['default_samplerate']
+        args.samplerate = SAMPLING_RATE
+
+    print('SAMPLE RATE:', args.samplerate, 'DOWNSAMPLE', args.downsample)
 
     length = int(args.window * args.samplerate / (1000 * args.downsample))
     plotdata = np.zeros((length, len(args.channels)))
