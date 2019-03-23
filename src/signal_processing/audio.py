@@ -6,10 +6,11 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.fftpack
-import scipy.signal
 
 SAMPLE_BUFFER_SIZE = 512
 SAMPLING_RATE = 4800
+
+ID_THRESHOLD = 200
 
 DTMF = [
     [941, 1336], #0
@@ -279,20 +280,24 @@ samples = np.array([])
 
 def process_sample_bufffer(samples):
     global fft
-    fft = scipy.fftpack.fft(samples)
-    xf = np.linspace(0.0, 1.0 / (2.0 * 1 / SAMPLING_RATE), SAMPLE_BUFFER_SIZE / 2)
-    trimmedFFT = np.abs(fft[:SAMPLE_BUFFER_SIZE//2]);
 
-    fftData = np.hstack([trimmedFFT, np.zeros((960 - trimmedFFT.real.shape[0]))])
-    fftIP = np.interp(fftData, [0.0, 20.0], [-0.75, 0.75])
-    fftData = fftIP
+    # Compute FFT
+    fft = scipy.fftpack.fft(samples)
+    xf = np.linspace(0.0, 1.0 / (2.0 * 1 / SAMPLING_RATE), SAMPLE_BUFFER_SIZE // 2)
+    trimmedFFT = np.abs(fft[:SAMPLE_BUFFER_SIZE // 2]);
+
+    # Plot FFT
+    fftData = np.hstack([trimmedFFT, np.zeros((length - trimmedFFT.real.shape[0]))])
+    fftData = np.interp(fftData, [0.0, 20.0], [-0.75, 0.75])
     lines[1].set_ydata(fftData)
 
+    # Get FFT peaks
     peaks = detect_peaks(trimmedFFT, mpd=15)
     peaks = sorted(peaks, key=lambda x: trimmedFFT[x])
     peakA = xf[peaks[-2]]
     peakB = xf[peaks[-1]]
 
+    # Identify DTMF
     res = 'null'
     resDiff = float('Inf')
     for i, tone in enumerate(DTMF):
@@ -302,8 +307,8 @@ def process_sample_bufffer(samples):
             res = DTMF_CODE[i]
             resDiff = difference
 
-    if resDiff < 300:
-        print('RES', res, resDiff)
+    if resDiff < ID_THRESHOLD:
+        print('NUMBER:', res, resDiff)
 
 def audio_callback(indata, frames, time, status):
     """This is called (from a separate thread) for each audio block."""
@@ -314,10 +319,12 @@ def audio_callback(indata, frames, time, status):
 
     global samples
     if samples.shape[0] < SAMPLE_BUFFER_SIZE:
+        # Grow sample buffer to desired size
         n = min(indata.shape[0], SAMPLE_BUFFER_SIZE - samples.shape[0])
         samples = np.append(samples, indata[:n])
 
         if (samples.shape[0] == SAMPLE_BUFFER_SIZE):
+            # Buffer is complete, go to processing and clean up for next buffer
             process_sample_bufffer(samples)
             samples = np.array([])
 
@@ -343,7 +350,6 @@ def update_plot(frame):
             line.set_ydata(plotdata[:, column])
     return lines
 
-
 try:
     from matplotlib.animation import FuncAnimation
     import sounddevice as sd
@@ -357,7 +363,7 @@ try:
         # args.samplerate = device_info['default_samplerate']
         args.samplerate = SAMPLING_RATE
 
-    print('SAMPLE RATE:', args.samplerate, 'DOWNSAMPLE', args.downsample)
+    print('SAMPLE RATE:', args.samplerate, 'DOWNSAMPLE:', args.downsample)
 
     length = int(args.window * args.samplerate / (1000 * args.downsample))
     plotdata = np.zeros((length, len(args.channels) + 1))
