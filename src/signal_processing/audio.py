@@ -284,7 +284,6 @@ def process_sample_bufffer(samples):
 
     # Compute FFT
     fft = scipy.fftpack.fft(samples)
-    xf = np.linspace(0.0, 1.0 / (2.0 * 1 / SAMPLING_RATE), BUFFER_SIZE // 2)
     trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
 
     # Plot FFT
@@ -367,6 +366,7 @@ try:
 
     length = int(args.window * args.samplerate / (1000 * args.downsample))
     plotdata = np.zeros((length, len(args.channels)))
+    xf = np.linspace(0.0, SAMPLING_RATE / 2.0, BUFFER_SIZE // 2)
 
     figure = plt.figure()
     grid = plt.GridSpec(4, 4)
@@ -374,10 +374,10 @@ try:
     fftAxes = figure.add_subplot(grid[2:, :])
 
     # FTT plot
-    fttLines = fftAxes.plot(np.zeros((BUFFER_SIZE // 2)))
-    fftAxes.axis((0, BUFFER_SIZE // 2, 0, 1))
-    fftAxes.tick_params(top=False,
-                   right=False, left=False, labelleft=False)
+    fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)))
+    fftAxes.axis((0, SAMPLING_RATE / 2.0, 0, 1))
+    fftAxes.set_xticks(np.linspace(0, SAMPLING_RATE // 2, 6))
+    fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
 
     # Sampling plot
     samplingLines = samplingAxes.plot(plotdata)
