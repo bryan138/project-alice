@@ -11,6 +11,7 @@ SAMPLE_BUFFER_SIZE = 512
 SAMPLING_RATE = 4800
 
 ID_THRESHOLD = 200
+FTT_CAP = 20.0
 
 DTMF = [
     [941, 1336], #0
@@ -288,7 +289,7 @@ def process_sample_bufffer(samples):
 
     # Plot FFT
     fftData = np.hstack([trimmedFFT, np.zeros((length - trimmedFFT.real.shape[0]))])
-    fftData = np.interp(fftData, [0.0, 20.0], [-0.75, 0.75])
+    fftData = np.interp(fftData, [0.0, FTT_CAP], [0, 1])
     lines[1].set_ydata(fftData)
 
     # Get FFT peaks
@@ -346,7 +347,7 @@ def update_plot(frame):
         plotdata[-shift:, :] = data
 
     for column, line in enumerate(lines):
-        if column == 0:
+        if column != len(lines) - 1:
             line.set_ydata(plotdata[:, column])
     return lines
 
@@ -366,24 +367,39 @@ try:
     print('SAMPLE RATE:', args.samplerate, 'DOWNSAMPLE:', args.downsample)
 
     length = int(args.window * args.samplerate / (1000 * args.downsample))
-    plotdata = np.zeros((length, len(args.channels) + 1))
+    plotdata = np.zeros((length, len(args.channels)))
 
-    fig, ax = plt.subplots()
-    lines = ax.plot(plotdata)
-    if len(args.channels) > 1:
-        ax.legend(['channel {}'.format(c) for c in args.channels],
-                  loc='lower left', ncol=len(args.channels))
-    ax.axis((0, len(plotdata), -1, 1))
-    ax.set_yticks([0])
-    ax.yaxis.grid(True)
-    ax.tick_params(bottom=False, top=False, labelbottom=False,
+    figure = plt.figure()
+    grid = plt.GridSpec(4, 4)
+    samplingAxes = figure.add_subplot(grid[0, :])
+    fftAxes = figure.add_subplot(grid[2:, :])
+
+    # FTT plot
+    fttLines = fftAxes.plot(np.zeros((960)))
+    fftAxes.axis((0, 960, 0, 1))
+    fftAxes.set_yticks([0])
+    fftAxes.yaxis.grid(True)
+    fftAxes.tick_params(bottom=False, top=False, labelbottom=False,
                    right=False, left=False, labelleft=False)
-    fig.tight_layout(pad=0)
 
+    # Sampling plot
+    samplingLines = samplingAxes.plot(plotdata)
+    if len(args.channels) > 1:
+        samplingAxes.legend(['channel {}'.format(c) for c in args.channels],
+                  loc='lower left', ncol=len(args.channels))
+    samplingAxes.axis((0, len(plotdata), -1, 1))
+    samplingAxes.set_yticks([0])
+    samplingAxes.yaxis.grid(True)
+    samplingAxes.tick_params(bottom=False, top=False, labelbottom=False,
+                   right=False, left=False, labelleft=False)
+
+    figure.tight_layout(pad=0)
+
+    lines = [samplingLines[0], fttLines[0]]
+    animation = FuncAnimation(figure, update_plot, interval=args.interval)
     stream = sd.InputStream(
         device=args.device, channels=max(args.channels),
         samplerate=args.samplerate, callback=audio_callback)
-    ani = FuncAnimation(fig, update_plot, interval=args.interval, blit=True)
     with stream:
         plt.show()
 except Exception as e:
