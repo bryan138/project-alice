@@ -301,17 +301,16 @@ def process_sample_bufffer(samples):
     peakB = xf[peaks[-1]]
 
     # Identify DTMF
-    res = 'null'
-    resDiff = float('Inf')
+    dtmfNumber = '--'
+    confidence = float('Inf')
     for i, tone in enumerate(DTMF):
         difference = abs(peakA - tone[0]) + abs(peakB - tone[1])
 
-        if (difference < resDiff):
-            res = DTMF_CODE[i]
-            resDiff = difference
+        if (difference < ID_THRESHOLD and difference < confidence):
+            dtmfNumber = DTMF_CODE[i]
+            confidence = difference
 
-    if resDiff < ID_THRESHOLD:
-        print('NUMBER:', res, resDiff)
+    dtmfText.set_text(dtmfNumber)
 
 def audio_callback(indata, frames, time, status):
     """This is called (from a separate thread) for each audio block."""
@@ -377,6 +376,7 @@ try:
     samplingAxes = figure.add_subplot(grid[0, :])
     fftAxes = figure.add_subplot(grid[2:, :])
     bufferAxes = figure.add_subplot(grid[1, :3])
+    textAxes = figure.add_subplot(grid[1, 3])
 
     # FTT plot
     fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)))
@@ -397,6 +397,12 @@ try:
     bufferAxes.set_yticks([0])
     bufferAxes.yaxis.grid(True)
     bufferAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
+
+    # Text plot
+    dtmfText = textAxes.text(0.5, 0.5, '5', size=30, ha='center', va='center')
+    textAxes.set_xticks([])
+    textAxes.set_yticks([])
+    textAxes.axis('off')
 
     figure.tight_layout(pad=0.5)
 
