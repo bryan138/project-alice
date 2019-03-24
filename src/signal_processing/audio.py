@@ -7,11 +7,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.fftpack
 
-BUFFER_SIZE = 512
 SAMPLING_RATE = 4800
+BUFFER_SIZE = 512
+BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 8
 
 ID_THRESHOLD = 200
-FTT_CAP = 20.0
+FTT_CAP = 25.0
 
 DTMF = [
     [941, 1336], #0
@@ -282,6 +283,9 @@ samples = np.array([])
 def process_sample_bufffer(samples):
     global fft
 
+    # Plot buffer
+    lines[2].set_ydata(samples[:BUFFER_DISPLAY_SIZE])
+
     # Compute FFT
     fft = scipy.fftpack.fft(samples)
     trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
@@ -345,7 +349,7 @@ def update_plot(frame):
         plotdata[-shift:, :] = data
 
     for column, line in enumerate(lines):
-        if column != len(lines) - 1:
+        if column < len(lines) - 2:
             line.set_ydata(plotdata[:, column])
     return lines
 
@@ -372,6 +376,7 @@ try:
     grid = plt.GridSpec(4, 4)
     samplingAxes = figure.add_subplot(grid[0, :])
     fftAxes = figure.add_subplot(grid[2:, :])
+    bufferAxes = figure.add_subplot(grid[1, :3])
 
     # FTT plot
     fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)))
@@ -381,18 +386,21 @@ try:
 
     # Sampling plot
     samplingLines = samplingAxes.plot(plotdata)
-    if len(args.channels) > 1:
-        samplingAxes.legend(['channel {}'.format(c) for c in args.channels],
-                  loc='lower left', ncol=len(args.channels))
     samplingAxes.axis((0, len(plotdata), -1, 1))
     samplingAxes.set_yticks([0])
     samplingAxes.yaxis.grid(True)
-    samplingAxes.tick_params(bottom=False, top=False, labelbottom=False,
-                   right=False, left=False, labelleft=False)
+    samplingAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
+
+    # Buffer plot
+    bufferLines = bufferAxes.plot(np.zeros(BUFFER_DISPLAY_SIZE))
+    bufferAxes.axis((0, BUFFER_DISPLAY_SIZE - 1, -1, 1))
+    bufferAxes.set_yticks([0])
+    bufferAxes.yaxis.grid(True)
+    bufferAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
 
     figure.tight_layout(pad=0.5)
 
-    lines = [samplingLines[0], fttLines[0]]
+    lines = [samplingLines[0], fttLines[0], bufferLines[0]]
     animation = FuncAnimation(figure, update_plot, interval=args.interval)
     stream = sd.InputStream(
         device=args.device, channels=max(args.channels),
