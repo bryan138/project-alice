@@ -301,16 +301,19 @@ def process_sample_bufffer(samples):
     peakB = xf[peaks[-1]]
 
     # Identify DTMF
+    identified = False
     dtmfNumber = '--'
     confidence = float('Inf')
     for i, tone in enumerate(DTMF):
         difference = abs(peakA - tone[0]) + abs(peakB - tone[1])
 
         if (difference < ID_THRESHOLD and difference < confidence):
+            identified = True
             dtmfNumber = DTMF_CODE[i]
             confidence = difference
 
     dtmfText.set_text(dtmfNumber)
+    confidenceText.set_text('{0:.2f}'.format(confidence) if identified else '')
 
 def audio_callback(indata, frames, time, status):
     """This is called (from a separate thread) for each audio block."""
@@ -399,7 +402,8 @@ try:
     bufferAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
 
     # Text plot
-    dtmfText = textAxes.text(0.5, 0.5, '5', size=30, ha='center', va='center')
+    dtmfText = textAxes.text(0.5, 0.5, '5', size=36, ha='center', va='center', weight='bold')
+    confidenceText = textAxes.text(0.5, 0.25, '18.94', size=8, ha='center', va='center')
     textAxes.set_xticks([])
     textAxes.set_yticks([])
     textAxes.axis('off')
