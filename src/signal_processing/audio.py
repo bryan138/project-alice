@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.fftpack
 
-SAMPLE_BUFFER_SIZE = 512
+BUFFER_SIZE = 512
 SAMPLING_RATE = 4800
 
 ID_THRESHOLD = 200
@@ -284,12 +284,11 @@ def process_sample_bufffer(samples):
 
     # Compute FFT
     fft = scipy.fftpack.fft(samples)
-    xf = np.linspace(0.0, 1.0 / (2.0 * 1 / SAMPLING_RATE), SAMPLE_BUFFER_SIZE // 2)
-    trimmedFFT = np.abs(fft[:SAMPLE_BUFFER_SIZE // 2]);
+    xf = np.linspace(0.0, 1.0 / (2.0 * 1 / SAMPLING_RATE), BUFFER_SIZE // 2)
+    trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
 
     # Plot FFT
-    fftData = np.hstack([trimmedFFT, np.zeros((length - trimmedFFT.real.shape[0]))])
-    fftData = np.interp(fftData, [0.0, FTT_CAP], [0, 1])
+    fftData = np.interp(trimmedFFT, [0.0, FTT_CAP], [0, 1])
     lines[1].set_ydata(fftData)
 
     # Get FFT peaks
@@ -319,12 +318,12 @@ def audio_callback(indata, frames, time, status):
     q.put(indata[::args.downsample, mapping])
 
     global samples
-    if samples.shape[0] < SAMPLE_BUFFER_SIZE:
+    if samples.shape[0] < BUFFER_SIZE:
         # Grow sample buffer to desired size
-        n = min(indata.shape[0], SAMPLE_BUFFER_SIZE - samples.shape[0])
+        n = min(indata.shape[0], BUFFER_SIZE - samples.shape[0])
         samples = np.append(samples, indata[:n])
 
-        if (samples.shape[0] == SAMPLE_BUFFER_SIZE):
+        if (samples.shape[0] == BUFFER_SIZE):
             # Buffer is complete, go to processing and clean up for next buffer
             process_sample_bufffer(samples)
             samples = np.array([])
@@ -375,11 +374,9 @@ try:
     fftAxes = figure.add_subplot(grid[2:, :])
 
     # FTT plot
-    fttLines = fftAxes.plot(np.zeros((960)))
-    fftAxes.axis((0, 960, 0, 1))
-    fftAxes.set_yticks([0])
-    fftAxes.yaxis.grid(True)
-    fftAxes.tick_params(bottom=False, top=False, labelbottom=False,
+    fttLines = fftAxes.plot(np.zeros((BUFFER_SIZE // 2)))
+    fftAxes.axis((0, BUFFER_SIZE // 2, 0, 1))
+    fftAxes.tick_params(top=False,
                    right=False, left=False, labelleft=False)
 
     # Sampling plot
@@ -393,7 +390,7 @@ try:
     samplingAxes.tick_params(bottom=False, top=False, labelbottom=False,
                    right=False, left=False, labelleft=False)
 
-    figure.tight_layout(pad=0)
+    figure.tight_layout(pad=0.5)
 
     lines = [samplingLines[0], fttLines[0]]
     animation = FuncAnimation(figure, update_plot, interval=args.interval)
