@@ -290,15 +290,16 @@ def process_sample_bufffer(samples):
     fft = scipy.fftpack.fft(samples)
     trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
 
-    # Plot FFT
-    fftData = np.interp(trimmedFFT, [0.0, FTT_CAP], [0, 1])
-    lines[1].set_ydata(fftData)
-
     # Get FFT peaks
     peaks = detect_peaks(trimmedFFT, mpd=15)
     peaks = sorted(peaks, key=lambda x: trimmedFFT[x])
     peakA = xf[peaks[-2]]
     peakB = xf[peaks[-1]]
+
+    # Plot FFT
+    fftData = np.interp(trimmedFFT, [0.0, FTT_CAP], [0, 1])
+    lines[1].set_ydata(fftData)
+    lines[1].set_markevery([peaks[-2], peaks[-1]])
 
     # Identify DTMF
     identified = False
@@ -382,7 +383,7 @@ try:
     textAxes = figure.add_subplot(grid[1, 3])
 
     # FTT plot
-    fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)))
+    fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), marker='.', markerfacecolor='r', markeredgecolor='r')
     fftAxes.axis((0, SAMPLING_RATE / 2.0, 0, 1))
     fftAxes.set_xticks(np.linspace(0, SAMPLING_RATE // 2, 6))
     fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
