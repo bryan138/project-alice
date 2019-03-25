@@ -293,8 +293,10 @@ def process_sample_bufffer(samples):
     trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
 
     # Get FFT peaks
-    peakDistance = 256 / ((SAMPLING_RATE / 2.0) / (BUFFER_SIZE // 2))
+    frequencyStep = (SAMPLING_RATE / 2) / (BUFFER_SIZE / 2)
+    peakDistance = 256 / frequencyStep
     peaks = find_peaks(trimmedFFT, distance=peakDistance)[0]
+    peaks = peaks[peaks > (256 / frequencyStep)]
     peaks = sorted(peaks, key=lambda x: trimmedFFT[x], reverse=True)
     peakA = min(peaks[0], peaks[1])
     peakB = max(peaks[0], peaks[1])
