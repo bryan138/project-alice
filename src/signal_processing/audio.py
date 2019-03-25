@@ -9,6 +9,7 @@ import scipy.fftpack
 from scipy.signal import find_peaks
 
 HIFI = False
+HIFI = True
 
 SAMPLING_RATE = 4800
 BUFFER_SIZE = 512
@@ -317,12 +318,26 @@ def process_sample_bufffer(samples):
     lines[1].set_markevery([peakA, peakB])
 
     # Update peak frequency labels
-    fftTextA.set_x(peakAF)
-    fftTextA.set_y(fftData[peakA] + 0.035)
     fftTextA.set_text('{}Hz'.format(int(peakAF)))
-    fftTextB.set_x(peakBF)
-    fftTextB.set_y(fftData[peakB] + 0.035)
+    if fftData[peakA] > 0.95:
+        offset = (BUFFER_SIZE / (-80 if HIFI else 250)) * frequencyStep
+        fftTextA.set_x(peakAF + offset)
+        fftTextA.set_y(0.95)
+        fftTextA.set_horizontalalignment('left')
+    else:
+        fftTextA.set_x(peakAF)
+        fftTextA.set_y(fftData[peakA] + 0.035)
+        fftTextA.set_horizontalalignment('center')
+
     fftTextB.set_text('{}Hz'.format(int(peakBF)))
+    if fftData[peakB] > 0.95:
+        fftTextB.set_x(peakBF + ((BUFFER_SIZE / 250) * frequencyStep))
+        fftTextB.set_y(0.95)
+        fftTextB.set_horizontalalignment('left')
+    else:
+        fftTextB.set_x(peakBF)
+        fftTextB.set_y(fftData[peakB] + 0.035)
+        fftTextB.set_horizontalalignment('center')
 
     # Identify DTMF
     identified = False
