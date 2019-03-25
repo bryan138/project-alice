@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.fftpack
+from scipy.signal import find_peaks
 
 SAMPLING_RATE = 4800
 BUFFER_SIZE = 512
@@ -292,8 +293,9 @@ def process_sample_bufffer(samples):
     trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
 
     # Get FFT peaks
-    peaks = detect_peaks(trimmedFFT, mpd=15)
-    peaks = sorted(peaks, key=lambda x: trimmedFFT[x])
+    peakDistance = 256 / ((SAMPLING_RATE / 2.0) / (BUFFER_SIZE // 2))
+    peaks = find_peaks(trimmedFFT, distance=peakDistance)[0]
+    peaks = sorted(peaks, key=lambda x: trimmedFFT[x], reverse=True)
     peakA = xf[peaks[-2]]
     peakB = xf[peaks[-1]]
 
