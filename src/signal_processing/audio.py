@@ -279,6 +279,7 @@ mapping = [c - 1 for c in args.channels]  # Channel numbers start with 1
 
 q = queue.Queue()
 samples = np.array([])
+paused = False
 
 def process_sample_bufffer(samples):
     global fft
@@ -324,7 +325,7 @@ def audio_callback(indata, frames, time, status):
     q.put(indata[::args.downsample, mapping])
 
     global samples
-    if samples.shape[0] < BUFFER_SIZE:
+    if not paused and samples.shape[0] < BUFFER_SIZE:
         # Grow sample buffer to desired size
         n = min(indata.shape[0], BUFFER_SIZE - samples.shape[0])
         samples = np.append(samples, indata[:n])
@@ -355,6 +356,13 @@ def update_plot(frame):
         if column < len(lines) - 2:
             line.set_ydata(plotdata[:, column])
     return lines
+
+def key_press(event):
+    global paused
+    sys.stdout.flush()
+    if event.key == ' ':
+        paused = not paused
+        samples = np.array([])
 
 try:
     from matplotlib.animation import FuncAnimation
@@ -410,6 +418,7 @@ try:
     textAxes.axis('off')
 
     figure.tight_layout(pad=0.5)
+    figure.canvas.mpl_connect('key_press_event', key_press)
 
     lines = [samplingLines[0], fttLines[0], bufferLines[0]]
     animation = FuncAnimation(figure, update_plot, interval=args.interval)
