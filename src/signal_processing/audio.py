@@ -8,12 +8,20 @@ import matplotlib.pyplot as plt
 import scipy.fftpack
 from scipy.signal import find_peaks
 
-SAMPLING_RATE = 48000
-BUFFER_SIZE = 1024
-BUFFER_DISPLAY_SIZE = BUFFER_SIZE
+HIFI = False
+
+SAMPLING_RATE = 4800
+BUFFER_SIZE = 512
+BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 8
+FTT_CAP = 25
+
+if HIFI:
+    SAMPLING_RATE = 48000
+    BUFFER_SIZE = 1024
+    BUFFER_DISPLAY_SIZE = BUFFER_SIZE
+    FTT_CAP = 125
 
 ID_THRESHOLD = 200
-FTT_CAP = 25.0
 
 DTMF = [
     [941, 1336], #0
