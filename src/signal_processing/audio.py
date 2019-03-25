@@ -4,9 +4,11 @@ import argparse
 import queue
 import sys
 import numpy as np
+import sounddevice as sd
 import matplotlib.pyplot as plt
 import scipy.fftpack
 from scipy.signal import find_peaks
+from matplotlib.animation import FuncAnimation
 
 HIFI = False
 HIFI = True
@@ -401,70 +403,66 @@ def key_press(event):
         paused = not paused
         samples = np.array([])
 
-try:
-    from matplotlib.animation import FuncAnimation
-    import sounddevice as sd
 
-    if args.list_devices:
-        print(sd.query_devices())
-        parser.exit(0)
 
-    if args.samplerate is None:
-        # device_info = sd.query_devices(args.device, 'input')
-        # args.samplerate = device_info['default_samplerate']
-        args.samplerate = SAMPLING_RATE
+if args.list_devices:
+    print(sd.query_devices())
+    parser.exit(0)
 
-    print('SAMPLE RATE:', args.samplerate, 'DOWNSAMPLE:', args.downsample)
+if args.samplerate is None:
+    # device_info = sd.query_devices(args.device, 'input')
+    # args.samplerate = device_info['default_samplerate']
+    args.samplerate = SAMPLING_RATE
 
-    length = int(args.window * args.samplerate / (1000 * args.downsample))
-    plotdata = np.zeros((length, len(args.channels)))
-    xf = np.linspace(0.0, SAMPLING_RATE / 2.0, BUFFER_SIZE // 2)
+print('SAMPLE RATE:', args.samplerate, 'DOWNSAMPLE:', args.downsample)
 
-    figure = plt.figure()
-    grid = plt.GridSpec(4, 4)
-    samplingAxes = figure.add_subplot(grid[0, :])
-    fftAxes = figure.add_subplot(grid[2:, :])
-    bufferAxes = figure.add_subplot(grid[1, :3])
-    textAxes = figure.add_subplot(grid[1, 3])
+length = int(args.window * args.samplerate / (1000 * args.downsample))
+plotdata = np.zeros((length, len(args.channels)))
+xf = np.linspace(0.0, SAMPLING_RATE / 2.0, BUFFER_SIZE // 2)
 
-    # FTT plot
-    fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), marker='.', markerfacecolor='r', markeredgecolor='r')
-    fftTextA = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
-    fftTextB = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
-    fftAxes.axis((0, SAMPLING_RATE / 2.0, 0, 1))
-    fftAxes.set_xticks(np.linspace(0, SAMPLING_RATE // 2, 6))
-    fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
+figure = plt.figure()
+grid = plt.GridSpec(4, 4)
+samplingAxes = figure.add_subplot(grid[0, :])
+fftAxes = figure.add_subplot(grid[2:, :])
+bufferAxes = figure.add_subplot(grid[1, :3])
+textAxes = figure.add_subplot(grid[1, 3])
 
-    # Sampling plot
-    samplingLines = samplingAxes.plot(plotdata)
-    samplingAxes.axis((0, len(plotdata), -1, 1))
-    samplingAxes.set_yticks([0])
-    samplingAxes.yaxis.grid(True)
-    samplingAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
+# FTT plot
+fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), marker='.', markerfacecolor='r', markeredgecolor='r')
+fftTextA = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
+fftTextB = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
+fftAxes.axis((0, SAMPLING_RATE / 2.0, 0, 1))
+fftAxes.set_xticks(np.linspace(0, SAMPLING_RATE // 2, 6))
+fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
 
-    # Buffer plot
-    bufferLines = bufferAxes.plot(np.zeros(BUFFER_DISPLAY_SIZE))
-    bufferAxes.axis((0, BUFFER_DISPLAY_SIZE - 1, -1, 1))
-    bufferAxes.set_yticks([0])
-    bufferAxes.yaxis.grid(True)
-    bufferAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
+# Sampling plot
+samplingLines = samplingAxes.plot(plotdata)
+samplingAxes.axis((0, len(plotdata), -1, 1))
+samplingAxes.set_yticks([0])
+samplingAxes.yaxis.grid(True)
+samplingAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
 
-    # Text plot
-    dtmfText = textAxes.text(0.5, 0.5, '5', size=36, ha='center', va='center', weight='bold')
-    confidenceText = textAxes.text(0.5, 0.25, '18.94', size=8, ha='center', va='center')
-    textAxes.set_xticks([])
-    textAxes.set_yticks([])
-    textAxes.axis('off')
+# Buffer plot
+bufferLines = bufferAxes.plot(np.zeros(BUFFER_DISPLAY_SIZE))
+bufferAxes.axis((0, BUFFER_DISPLAY_SIZE - 1, -1, 1))
+bufferAxes.set_yticks([0])
+bufferAxes.yaxis.grid(True)
+bufferAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
 
-    figure.tight_layout(pad=0.5)
-    figure.canvas.mpl_connect('key_press_event', key_press)
+# Text plot
+dtmfText = textAxes.text(0.5, 0.5, '5', size=36, ha='center', va='center', weight='bold')
+confidenceText = textAxes.text(0.5, 0.25, '18.94', size=8, ha='center', va='center')
+textAxes.set_xticks([])
+textAxes.set_yticks([])
+textAxes.axis('off')
 
-    lines = [samplingLines[0], fttLines[0], bufferLines[0]]
-    animation = FuncAnimation(figure, update_plot, interval=args.interval)
-    stream = sd.InputStream(
-        device=args.device, channels=max(args.channels),
-        samplerate=args.samplerate, callback=audio_callback)
-    with stream:
-        plt.show()
-except Exception as e:
-    parser.exit(type(e).__name__ + ': ' + str(e))
+figure.tight_layout(pad=0.5)
+figure.canvas.mpl_connect('key_press_event', key_press)
+
+lines = [samplingLines[0], fttLines[0], bufferLines[0]]
+animation = FuncAnimation(figure, update_plot, interval=args.interval)
+stream = sd.InputStream(
+    device=args.device, channels=max(args.channels),
+    samplerate=args.samplerate, callback=audio_callback)
+with stream:
+    plt.show()
