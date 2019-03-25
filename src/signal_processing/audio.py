@@ -11,11 +11,11 @@ from scipy.signal import find_peaks
 from matplotlib.animation import FuncAnimation
 
 HIFI = False
-HIFI = True
+# HIFI = True
 
 SAMPLING_RATE = 4800
 BUFFER_SIZE = 512
-BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 8
+BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 4
 FTT_CAP = 25
 
 if HIFI:
@@ -414,13 +414,12 @@ if args.samplerate is None:
     # args.samplerate = device_info['default_samplerate']
     args.samplerate = SAMPLING_RATE
 
-print('SAMPLE RATE:', args.samplerate, 'DOWNSAMPLE:', args.downsample)
-
+plt.rcParams['toolbar'] = 'None'
 length = int(args.window * args.samplerate / (1000 * args.downsample))
 plotdata = np.zeros((length, len(args.channels)))
 xf = np.linspace(0.0, SAMPLING_RATE / 2.0, BUFFER_SIZE // 2)
 
-figure = plt.figure()
+figure = plt.figure('FQT 9000')
 grid = plt.GridSpec(4, 4)
 samplingAxes = figure.add_subplot(grid[0, :])
 fftAxes = figure.add_subplot(grid[2:, :])
@@ -441,6 +440,9 @@ samplingAxes.axis((0, len(plotdata), -1, 1))
 samplingAxes.set_yticks([0])
 samplingAxes.yaxis.grid(True)
 samplingAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
+samplingAxes.set_title('Sample Rate: {}Hz'.format(SAMPLING_RATE), loc='left', fontsize=7)
+samplingAxes.set_title('Fast Quijas Transformer 9000', fontweight='bold', fontsize=14)
+samplingAxes.set_title('Buffer Size: {}'.format(BUFFER_SIZE), loc='right', fontsize=7)
 
 # Buffer plot
 bufferLines = bufferAxes.plot(np.zeros(BUFFER_DISPLAY_SIZE))
