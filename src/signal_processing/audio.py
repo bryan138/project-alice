@@ -8,9 +8,9 @@ import matplotlib.pyplot as plt
 import scipy.fftpack
 from scipy.signal import find_peaks
 
-SAMPLING_RATE = 4800
-BUFFER_SIZE = 512
-BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 8
+SAMPLING_RATE = 48000
+BUFFER_SIZE = 1024
+BUFFER_DISPLAY_SIZE = BUFFER_SIZE
 
 ID_THRESHOLD = 200
 FTT_CAP = 25.0
@@ -296,20 +296,30 @@ def process_sample_bufffer(samples):
     peakDistance = 256 / ((SAMPLING_RATE / 2.0) / (BUFFER_SIZE // 2))
     peaks = find_peaks(trimmedFFT, distance=peakDistance)[0]
     peaks = sorted(peaks, key=lambda x: trimmedFFT[x], reverse=True)
-    peakA = xf[peaks[-2]]
-    peakB = xf[peaks[-1]]
+    peakA = min(peaks[0], peaks[1])
+    peakB = max(peaks[0], peaks[1])
+    peakAF = xf[peakA]
+    peakBF = xf[peakB]
 
     # Plot FFT
     fftData = np.interp(trimmedFFT, [0.0, FTT_CAP], [0, 1])
     lines[1].set_ydata(fftData)
-    lines[1].set_markevery([peaks[-2], peaks[-1]])
+    lines[1].set_markevery([peakA, peakB])
+
+    # Update peak frequency labels
+    fftTextA.set_x(peakAF)
+    fftTextA.set_y(fftData[peakA] + 0.035)
+    fftTextA.set_text('{}Hz'.format(int(peakAF)))
+    fftTextB.set_x(peakBF)
+    fftTextB.set_y(fftData[peakB] + 0.035)
+    fftTextB.set_text('{}Hz'.format(int(peakBF)))
 
     # Identify DTMF
     identified = False
     dtmfNumber = '--'
     confidence = float('Inf')
     for i, tone in enumerate(DTMF):
-        difference = abs(peakA - tone[0]) + abs(peakB - tone[1])
+        difference = abs(peakAF - tone[0]) + abs(peakBF - tone[1])
 
         if (difference < ID_THRESHOLD and difference < confidence):
             identified = True
@@ -394,6 +404,8 @@ try:
 
     # FTT plot
     fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), marker='.', markerfacecolor='r', markeredgecolor='r')
+    fftTextA = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
+    fftTextB = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
     fftAxes.axis((0, SAMPLING_RATE / 2.0, 0, 1))
     fftAxes.set_xticks(np.linspace(0, SAMPLING_RATE // 2, 6))
     fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
