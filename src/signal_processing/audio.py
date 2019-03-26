@@ -34,6 +34,8 @@ parser.add_argument(
 parser.add_argument(
     '-hf', '--hifi', action='store_true', help='enable high fidelity mode')
 parser.add_argument(
+    '-lf', '--lofi', action='store_true', help='enable low fidelity mode')
+parser.add_argument(
     '-r', '--samplerate', type=float, help='sampling rate of audio device')
 parser.add_argument(
     '-n', '--downsample', type=int, default=1, metavar='N',
@@ -56,6 +58,13 @@ if args.hifi:
     BUFFER_SIZE = 1024
     BUFFER_DISPLAY_SIZE = BUFFER_SIZE
     FTT_CAP = 125
+
+if args.lofi:
+    SAMPLING_RATE = 44100
+    BUFFER_SIZE = 256
+    BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 4
+    FTT_CAP = 75
+    args.downsample = 10
 
 ID_THRESHOLD = 200
 
@@ -303,7 +312,7 @@ def process_sample_bufffer(samples):
     trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
 
     # Get FFT peaks
-    frequencyStep = (SAMPLING_RATE / 2) / (BUFFER_SIZE / 2)
+    frequencyStep = (args.samplerate / 2) / (BUFFER_SIZE / 2)
     peakDistance = 256 / frequencyStep
     peaks = find_peaks(trimmedFFT, distance=peakDistance)[0]
     peaks = peaks[peaks > (256 / frequencyStep)]
@@ -416,7 +425,7 @@ if args.samplerate is None:
 plt.rcParams['toolbar'] = 'None'
 length = int(args.window * args.samplerate / (1000 * args.downsample))
 plotdata = np.zeros((length, len(args.channels)))
-xf = np.linspace(0.0, SAMPLING_RATE / 2.0, BUFFER_SIZE // 2)
+xf = np.linspace(0.0, args.samplerate / 2.0, BUFFER_SIZE // 2)
 
 figure = plt.figure('FQT 9000')
 grid = plt.GridSpec(4, 4)
@@ -429,8 +438,8 @@ textAxes = figure.add_subplot(grid[1, 3])
 fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), marker='.', markerfacecolor='r', markeredgecolor='r')
 fftTextA = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
 fftTextB = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
-fftAxes.axis((0, SAMPLING_RATE / 2.0, 0, 1))
-fftAxes.set_xticks(np.linspace(0, SAMPLING_RATE // 2, 6))
+fftAxes.axis((0, args.samplerate / 2.0, 0, 1))
+fftAxes.set_xticks(np.linspace(0, args.samplerate // 2, 6))
 fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
 
 # Sampling plot
@@ -439,7 +448,7 @@ samplingAxes.axis((0, len(plotdata), -1, 1))
 samplingAxes.set_yticks([0])
 samplingAxes.yaxis.grid(True)
 samplingAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
-samplingAxes.set_title('Sample Rate: {}Hz'.format(SAMPLING_RATE), loc='left', fontsize=7)
+samplingAxes.set_title('Sample Rate: {}Hz'.format(args.samplerate), loc='left', fontsize=7)
 samplingAxes.set_title('Fast Quijas Transformer 9000', fontweight='bold', fontsize=14)
 samplingAxes.set_title('Buffer Size: {}'.format(BUFFER_SIZE), loc='right', fontsize=7)
 
