@@ -49,13 +49,13 @@ if any(c < 1 for c in args.channels):
 mapping = [c - 1 for c in args.channels]
 
 SAMPLING_RATE = 4800
-BUFFER_SIZE = 512
+BUFFER_SIZE = 256
 BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 4
 FTT_CAP = 25
 
 if args.hifi:
     SAMPLING_RATE = 48000
-    BUFFER_SIZE = 1024
+    BUFFER_SIZE = 512
     BUFFER_DISPLAY_SIZE = BUFFER_SIZE
     FTT_CAP = 125
 
@@ -312,7 +312,7 @@ def process_sample_bufffer(samples):
     trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
 
     # Get FFT peaks
-    frequencyStep = (args.samplerate / 2) / (BUFFER_SIZE / 2)
+    frequencyStep = (args.samplerate / (2 * args.downsample)) / (BUFFER_SIZE / 2)
     peakDistance = 256 / frequencyStep
     peaks = find_peaks(trimmedFFT, distance=peakDistance)[0]
     peaks = peaks[peaks > (256 / frequencyStep)]
@@ -374,8 +374,9 @@ def audio_callback(indata, frames, time, status):
     global samples
     if not paused and samples.shape[0] < BUFFER_SIZE:
         # Grow sample buffer to desired size
-        n = min(indata.shape[0], BUFFER_SIZE - samples.shape[0])
-        samples = np.append(samples, indata[:n])
+        dataPoints = indata[::args.downsample]
+        n = min(dataPoints.shape[0], BUFFER_SIZE - samples.shape[0])
+        samples = np.append(samples, dataPoints[:n])
 
         if (samples.shape[0] == BUFFER_SIZE):
             # Buffer is complete, go to processing and clean up for next buffer
@@ -425,7 +426,7 @@ if args.samplerate is None:
 plt.rcParams['toolbar'] = 'None'
 length = int(args.window * args.samplerate / (1000 * args.downsample))
 plotdata = np.zeros((length, len(args.channels)))
-xf = np.linspace(0.0, args.samplerate / 2.0, BUFFER_SIZE // 2)
+xf = np.linspace(0.0, args.samplerate / (2.0 * args.downsample), BUFFER_SIZE // 2)
 
 figure = plt.figure('FQT 9000')
 grid = plt.GridSpec(4, 4)
@@ -438,8 +439,8 @@ textAxes = figure.add_subplot(grid[1, 3])
 fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), marker='.', markerfacecolor='r', markeredgecolor='r')
 fftTextA = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
 fftTextB = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
-fftAxes.axis((0, args.samplerate / 2.0, 0, 1))
-fftAxes.set_xticks(np.linspace(0, args.samplerate // 2, 6))
+fftAxes.axis((0, args.samplerate / (2.0 * args.downsample), 0, 1))
+fftAxes.set_xticks(np.linspace(0, (args.samplerate / args.downsample) // 2, 6))
 fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
 
 # Sampling plot
@@ -448,7 +449,7 @@ samplingAxes.axis((0, len(plotdata), -1, 1))
 samplingAxes.set_yticks([0])
 samplingAxes.yaxis.grid(True)
 samplingAxes.tick_params(bottom=False, labelbottom=False, left=False, labelleft=False)
-samplingAxes.set_title('Sample Rate: {}Hz'.format(args.samplerate), loc='left', fontsize=7)
+samplingAxes.set_title('Sample Rate: {}Hz'.format(args.samplerate // args.downsample), loc='left', fontsize=7)
 samplingAxes.set_title('Fast Quijas Transformer 9000', fontweight='bold', fontsize=14)
 samplingAxes.set_title('Buffer Size: {}'.format(BUFFER_SIZE), loc='right', fontsize=7)
 
