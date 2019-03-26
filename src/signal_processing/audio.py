@@ -10,15 +10,48 @@ import scipy.fftpack
 from scipy.signal import find_peaks
 from matplotlib.animation import FuncAnimation
 
-HIFI = False
-# HIFI = True
+def int_or_str(text):
+    try:
+        return int(text)
+    except ValueError:
+        return text
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument(
+    '-l', '--list-devices', action='store_true',
+    help='show list of audio devices and exit')
+parser.add_argument(
+    '-d', '--device', type=int_or_str,
+    help='input device (numeric ID or substring)')
+parser.add_argument(
+    '-w', '--window', type=float, default=200, metavar='DURATION',
+    help='visible time slot (default: %(default)s ms)')
+parser.add_argument(
+    '-i', '--interval', type=float, default=30,
+    help='minimum time between plot updates (default: %(default)s ms)')
+parser.add_argument(
+    '-b', '--blocksize', type=int, help='block size (in samples)')
+parser.add_argument(
+    '-hf', '--hifi', action='store_true', help='enable high fidelity mode')
+parser.add_argument(
+    '-r', '--samplerate', type=float, help='sampling rate of audio device')
+parser.add_argument(
+    '-n', '--downsample', type=int, default=1, metavar='N',
+    help='display every Nth sample (default: %(default)s)')
+parser.add_argument(
+    'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
+    help='input channels to plot (default: the first)')
+args = parser.parse_args()
+if any(c < 1 for c in args.channels):
+    parser.error('argument CHANNEL: must be >= 1')
+mapping = [c - 1 for c in args.channels]
 
 SAMPLING_RATE = 4800
 BUFFER_SIZE = 512
 BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 4
 FTT_CAP = 25
 
-if HIFI:
+if args.hifi:
     SAMPLING_RATE = 48000
     BUFFER_SIZE = 1024
     BUFFER_DISPLAY_SIZE = BUFFER_SIZE
@@ -255,40 +288,6 @@ def _plot(x, mph, mpd, threshold, edge, valley, ax, ind):
         # plt.grid()
         plt.show()
 
-def int_or_str(text):
-    try:
-        return int(text)
-    except ValueError:
-        return text
-
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument(
-    '-l', '--list-devices', action='store_true',
-    help='show list of audio devices and exit')
-parser.add_argument(
-    '-d', '--device', type=int_or_str,
-    help='input device (numeric ID or substring)')
-parser.add_argument(
-    '-w', '--window', type=float, default=200, metavar='DURATION',
-    help='visible time slot (default: %(default)s ms)')
-parser.add_argument(
-    '-i', '--interval', type=float, default=30,
-    help='minimum time between plot updates (default: %(default)s ms)')
-parser.add_argument(
-    '-b', '--blocksize', type=int, help='block size (in samples)')
-parser.add_argument(
-    '-r', '--samplerate', type=float, help='sampling rate of audio device')
-parser.add_argument(
-    '-n', '--downsample', type=int, default=1, metavar='N',
-    help='display every Nth sample (default: %(default)s)')
-parser.add_argument(
-    'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
-    help='input channels to plot (default: the first)')
-args = parser.parse_args()
-if any(c < 1 for c in args.channels):
-    parser.error('argument CHANNEL: must be >= 1')
-mapping = [c - 1 for c in args.channels]  # Channel numbers start with 1
-
 q = queue.Queue()
 samples = np.array([])
 paused = False
@@ -322,7 +321,7 @@ def process_sample_bufffer(samples):
     # Update peak frequency labels
     fftTextA.set_text('{}Hz'.format(int(peakAF)))
     if fftData[peakA] > 0.95:
-        offset = (BUFFER_SIZE / (-80 if HIFI else 250)) * frequencyStep
+        offset = (BUFFER_SIZE / (-80 if args.hifi else 250)) * frequencyStep
         fftTextA.set_x(peakAF + offset)
         fftTextA.set_y(0.95)
         fftTextA.set_horizontalalignment('left')
