@@ -199,23 +199,28 @@ def key_press(event):
         paused = not paused
         samples = np.array([])
 
+def segment_data(data, size):
+    segments = []
+    for i in range(0, data.shape[0], size):
+        if i + size < data.shape[0]:
+            segments.append(data[i:i + size])
+    return segments
+
 def get_fingerprint(path, plot = False):
     global lines
 
     # Get audio data and prepare for processing
     samplingFrequency, audioData = wavfile.read(path)
     audioData = np.array(audioData)
-    audioData = np.resize(audioData, (4096))
-    audioData = np.interp(audioData, [np.amin(audioData), np.amax(audioData)] , [-0.8, 0.8])
+    audioData = np.interp(audioData, [np.amin(audioData), np.amax(audioData)] , [-1.0, 1.0])
 
     # Generate fingerprint by segmenting samples and averaging FFTs
     fingerprint = np.zeros(BUFFER_SIZE // 2)
-    segmentCount = 4096 / 256
-    segments = np.split(audioData, segmentCount)
+    segments = segment_data(audioData, BUFFER_SIZE)
     for segment in segments:
         fft = scipy.fftpack.fft(segment)
         trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
-        fingerprint = fingerprint + (trimmedFFT / segmentCount)
+        fingerprint = fingerprint + (trimmedFFT / len(segments))
 
     if plot:
         fftData = np.interp(fingerprint, [0.0, FTT_CAP], [0, 1])
