@@ -54,6 +54,8 @@ BUFFER_SIZE = 256
 BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 4
 FTT_CAP = 25
 
+LOW_PASS_THRESHOLD = 0.05
+
 if args.hifi:
     SAMPLING_RATE = 48000
     BUFFER_SIZE = 512
@@ -102,7 +104,7 @@ def process_sample_bufffer(samples):
 
     # Compute FFT
     fft = scipy.fftpack.fft(samples)
-    trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
+    trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2])
     # trimmedFFT = fft.real[:BUFFER_SIZE // 2];
 
     # print (fft, trimmedFFT)
@@ -167,10 +169,15 @@ def audio_callback(indata, frames, time, status):
     # Fancy indexing with mapping creates a (necessary!) copy:
     q.put(indata[::args.downsample, mapping])
 
+    global recordingWord 
+    dataPoints = indata[::args.downsample]
+    for value in dataPoints:
+        if not recordingWord and abs(value) >= LOW_PASS_THRESHOLD:
+            recordingWord = True
+
     global samples
-    if not paused and samples.shape[0] < BUFFER_SIZE:
+    if recordingWord and not paused and samples.shape[0] < BUFFER_SIZE:
         # Grow sample buffer to desired size
-        dataPoints = indata[::args.downsample]
         n = min(dataPoints.shape[0], BUFFER_SIZE - samples.shape[0])
         samples = np.append(samples, dataPoints[:n])
 
@@ -178,6 +185,7 @@ def audio_callback(indata, frames, time, status):
             # Buffer is complete, go to processing and clean up for next buffer
             process_sample_bufffer(samples)
             samples = np.array([])
+            recordingWord = False
 
 def update_plot(frame):
     global plotdata
@@ -210,6 +218,8 @@ if args.samplerate is None:
     # device_info = sd.query_devices(args.device, 'input')
     # args.samplerate = device_info['default_samplerate']
     args.samplerate = SAMPLING_RATE
+
+recordingWord = False
 
 plt.rcParams['toolbar'] = 'None'
 length = int(args.window * args.samplerate / (1000 * args.downsample))
