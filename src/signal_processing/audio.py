@@ -49,9 +49,9 @@ if any(c < 1 for c in args.channels):
     parser.error('argument CHANNEL: must be >= 1')
 mapping = [c - 1 for c in args.channels]
 
-SAMPLING_RATE = 4800
+SAMPLING_RATE = 8000
 BUFFER_SIZE = 256
-BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 4
+BUFFER_DISPLAY_SIZE = BUFFER_SIZE
 FTT_CAP = 25
 
 if args.hifi:
@@ -103,9 +103,6 @@ def process_sample_bufffer(samples):
     # Compute FFT
     fft = scipy.fftpack.fft(samples)
     trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
-    # trimmedFFT = fft.real[:BUFFER_SIZE // 2];
-
-    # print (fft, trimmedFFT)
 
     # Get FFT peaks
     frequencyStep = (args.samplerate / (2 * args.downsample)) / (BUFFER_SIZE / 2)
@@ -202,6 +199,30 @@ def key_press(event):
         paused = not paused
         samples = np.array([])
 
+def get_fingerprint(path, plot = False):
+    global lines
+
+    # Get audio data and prepare for processing
+    samplingFrequency, audioData = wavfile.read(path)
+    audioData = np.array(audioData)
+    audioData = np.resize(audioData, (4096))
+    audioData = np.interp(audioData, [np.amin(audioData), np.amax(audioData)] , [-0.8, 0.8])
+
+    # Generate fingerprint by segmenting samples and averaging FFTs
+    fingerprint = np.zeros(BUFFER_SIZE // 2)
+    segmentCount = 4096 / 256
+    segments = np.split(audioData, segmentCount)
+    for segment in segments:
+        fft = scipy.fftpack.fft(segment)
+        trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
+        fingerprint = fingerprint + (trimmedFFT / segmentCount)
+
+    if plot:
+        fftData = np.interp(fingerprint, [0.0, FTT_CAP], [0, 1])
+        lines[1].set_ydata(fftData)
+
+    return fingerprint
+
 if args.list_devices:
     print(sd.query_devices())
     parser.exit(0)
@@ -224,7 +245,7 @@ bufferAxes = figure.add_subplot(grid[1, :3])
 textAxes = figure.add_subplot(grid[1, 3])
 
 # FTT plot
-fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), marker='.', markerfacecolor='r', markeredgecolor='r')
+fttLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)))
 fftTextA = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
 fftTextB = fftAxes.text(0, 0, '', size=7, ha='center', va='center')
 fftAxes.axis((0, args.samplerate / (2.0 * args.downsample), 0, 1))
