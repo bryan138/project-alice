@@ -228,6 +228,18 @@ def get_fingerprint(path, plot = False):
 
     return fingerprint
 
+def get_master_fingerprint(number, plot = False):
+    master_fingerprint = np.zeros(BUFFER_SIZE // 2)
+    for i in range(50):
+        fingerprint = get_fingerprint('./recordings/%d_jackson_%d.wav' % (number, i))
+        master_fingerprint = master_fingerprint + (fingerprint / 50)
+
+    if plot:
+        fftData = np.interp(master_fingerprint, [0.0, FTT_CAP], [0, 1])
+        lines[1].set_ydata(fftData)
+
+    return master_fingerprint
+
 if args.list_devices:
     print(sd.query_devices())
     parser.exit(0)
@@ -285,6 +297,11 @@ figure.tight_layout(pad=0.5)
 figure.canvas.mpl_connect('key_press_event', key_press)
 
 lines = [samplingLines[0], fttLines[0], bufferLines[0]]
+
+master_fingerprints = []
+for i in range(10):
+    master_fingerprints.append(get_master_fingerprint(i))
+
 animation = FuncAnimation(figure, update_plot, interval=args.interval)
 stream = sd.InputStream(
     device=args.device, channels=max(args.channels),
