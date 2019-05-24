@@ -50,8 +50,8 @@ if any(c < 1 for c in args.channels):
 mapping = [c - 1 for c in args.channels]
 
 SAMPLING_RATE = 4800
-BUFFER_SIZE = 4096
-BUFFER_DISPLAY_SIZE = BUFFER_SIZE
+BUFFER_SIZE = 256
+BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 4
 FTT_CAP = 25
 
 if args.hifi:
@@ -176,9 +176,7 @@ def audio_callback(indata, frames, time, status):
 
         if (samples.shape[0] == BUFFER_SIZE):
             # Buffer is complete, go to processing and clean up for next buffer
-            # process_sample_bufffer(samples)
-            print('maxmaxmax', np.amax(samples))
-            print('minminmin', np.amin(samples))
+            process_sample_bufffer(samples)
             samples = np.array([])
 
 def update_plot(frame):
@@ -203,7 +201,6 @@ def key_press(event):
     if event.key == ' ':
         paused = not paused
         samples = np.array([])
-
 
 if args.list_devices:
     print(sd.query_devices())
@@ -266,13 +263,5 @@ animation = FuncAnimation(figure, update_plot, interval=args.interval)
 stream = sd.InputStream(
     device=args.device, channels=max(args.channels),
     samplerate=args.samplerate, callback=audio_callback)
-
-fs, data = wavfile.read('./recordings/0_jackson_2.wav')
-wat = np.array(data)
-wut = np.resize(wat, (4096))
-wut = np.interp(wut, [np.amin(wut), np.amax(wut)] , [-0.8, 0.8])
-print(wut.shape)
-process_sample_bufffer(wut)
-
 with stream:
     plt.show()
