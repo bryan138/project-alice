@@ -258,6 +258,20 @@ def identify_sample(master_fingerprints, test):
 
     return result
 
+def get_accuracy(number, master_fingerprints):
+    matches = 0
+    dudes = ['jackson', 'nicolas', 'theo', 'yweweler']
+    for dude in dudes:
+        for i in range(1, 50):
+            test = get_fingerprint('./recordings/%d_%s_%d.wav' % (number, dude, i))
+            result = identify_sample(master_fingerprints, test)
+            matches = (matches + 1) if result == number else matches
+            # print(result)
+
+    accuracy = matches / (len(dudes) * 50)
+    print(number, matches, accuracy)
+    return accuracy
+
 
 if args.list_devices:
     print(sd.query_devices())
@@ -317,16 +331,21 @@ figure.canvas.mpl_connect('key_press_event', key_press)
 
 lines = [samplingLines[0], fttLines[0], bufferLines[0]]
 
+# Generate master fingerprints for all numbers
 master_fingerprints = []
 for i in range(10):
     master_fingerprints.append(get_master_fingerprint(i))
 
-test = get_fingerprint('./recordings/0_jackson_1.wav', plot=True)
-print(identify_sample(master_fingerprints, test))
+# Test accuracy
+for i in range(10):
+    get_accuracy(i, master_fingerprints)
 
-animation = FuncAnimation(figure, update_plot, interval=args.interval)
-stream = sd.InputStream(
-    device=args.device, channels=max(args.channels),
-    samplerate=args.samplerate, callback=audio_callback)
-with stream:
-    plt.show()
+# test = get_fingerprint('./recordings/2_jackson_1.wav', plot=True)
+# print(identify_sample(master_fingerprints, test))
+
+# animation = FuncAnimation(figure, update_plot, interval=args.interval)
+# stream = sd.InputStream(
+#     device=args.device, channels=max(args.channels),
+#     samplerate=args.samplerate, callback=audio_callback)
+# with stream:
+#     plt.show()
