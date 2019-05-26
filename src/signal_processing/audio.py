@@ -241,6 +241,21 @@ def get_master_fingerprint(number, plot = False):
 
     return master_fingerprint
 
+def identify_sample(master_fingerprints, test):
+    min_error = float('Inf')
+    result = -1
+    for index, master in enumerate(master_fingerprints):
+        error = 0
+        for a, b in zip(master, test):
+            error = error + abs(a - b)
+
+        if error < min_error:
+            min_error = error
+            result = index
+
+    return result
+
+
 if args.list_devices:
     print(sd.query_devices())
     parser.exit(0)
@@ -302,6 +317,9 @@ lines = [samplingLines[0], fttLines[0], bufferLines[0]]
 master_fingerprints = []
 for i in range(10):
     master_fingerprints.append(get_master_fingerprint(i))
+
+test = get_fingerprint('./recordings/0_jackson_1.wav', plot=True)
+print(identify_sample(master_fingerprints, test))
 
 animation = FuncAnimation(figure, update_plot, interval=args.interval)
 stream = sd.InputStream(
