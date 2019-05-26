@@ -230,9 +230,10 @@ def get_fingerprint(path, plot = False):
 
 def get_master_fingerprint(number, plot = False):
     master_fingerprint = np.zeros(BUFFER_SIZE // 2)
-    for i in range(50):
-        fingerprint = get_fingerprint('./recordings/%d_jackson_%d.wav' % (number, i))
-        master_fingerprint = master_fingerprint + (fingerprint / 50)
+    for dude in ['jackson', 'nicolas', 'theo', 'yweweler']:
+        for i in range(50):
+            fingerprint = get_fingerprint('./recordings/%d_%s_%d.wav' % (number, dude, i))
+            master_fingerprint = master_fingerprint + (fingerprint / 50)
 
     if plot:
         fftData = np.interp(master_fingerprint, [0.0, FTT_CAP], [0, 1])
