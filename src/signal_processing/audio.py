@@ -50,7 +50,7 @@ if any(c < 1 for c in args.channels):
 mapping = [c - 1 for c in args.channels]
 
 SAMPLING_RATE = 8000
-BUFFER_SIZE = 256
+BUFFER_SIZE = 512
 BUFFER_DISPLAY_SIZE = BUFFER_SIZE
 FTT_CAP = 25
 
@@ -226,14 +226,17 @@ def get_fingerprint(path, plot = False):
         fftData = np.interp(fingerprint, [0.0, FTT_CAP], [0, 1])
         lines[1].set_ydata(fftData)
 
+    fingerprint[0] = 0
     return fingerprint
 
 def get_master_fingerprint(number, plot = False):
     master_fingerprint = np.zeros(BUFFER_SIZE // 2)
-    for dude in ['jackson', 'nicolas', 'theo', 'yweweler']:
+    dudes = ['jackson', 'nicolas', 'theo', 'yweweler']
+    for dude in dudes:
         for i in range(50):
             fingerprint = get_fingerprint('./recordings/%d_%s_%d.wav' % (number, dude, i))
-            master_fingerprint = master_fingerprint + (fingerprint / 50)
+            master_fingerprint = master_fingerprint + fingerprint
+    master_fingerprint = master_fingerprint / (len(dudes) * 50)
 
     if plot:
         fftData = np.interp(master_fingerprint, [0.0, FTT_CAP], [0, 1])
