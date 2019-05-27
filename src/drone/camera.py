@@ -3,6 +3,9 @@ import cv2
 from math import atan2, cos, sin, sqrt, pi, radians
 
 
+ARROW_MATCH_THRESHOLD = 0.75
+
+
 def goodFeatures(img):
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
@@ -41,7 +44,7 @@ def houghLines(img):
 def getContours(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    ret, thresh = cv2.threshold(blur, 60, 255, cv2.THRESH_BINARY_INV)
+    ret, thresh = cv2.threshold(blur, 80, 255, cv2.THRESH_BINARY_INV)
     contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
     return contours
 
@@ -124,9 +127,25 @@ def drawAxis(img, p, q, colour, scale):
     p[1] = q[1] + 9 * sin(angle - pi / 4)
     cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 2, cv2.LINE_AA)
 
+def filterArrows(img):
+    contours = getContours(img)
+    for contour in contours:
+        # Ignore contours that are too small or too large
+        area = cv2.contourArea(contour)
+        if area < 1e2 or 1e5 < area:
+            continue
+
+        matches = cv2.matchShapes(contour, arrowContour, cv2.CONTOURS_MATCH_I2, 0)
+        if matches < ARROW_MATCH_THRESHOLD:
+            cv2.drawContours(img, [contour], 0, (0, 0, 255), 2);
+        else:
+            cv2.drawContours(img, [contour], 0, (0, 255, 0), 1);
+
 
 # videoCapture = cv2.VideoCapture(0)
 videoCapture = cv2.VideoCapture('http://192.168.0.17:8080/video')
+
+arrowContour = getContours(cv2.imread("arrow.png"))[0]
 
 while True:
     # Capture the frames
@@ -134,16 +153,15 @@ while True:
     if img is None:
         if not videoCapture.isOpened():
             raise Exception('Couldn\'t establish video connection')
-
-        print('No frame found')
-        continue
+        raise Exception('No frame found')
 
     # goodFeatures(img)
     # boundingRect(img)
     # houghLines(img)
     # drawContours(img)
     # contourOrientation(img)
-    pcaOrientation(img)
+    # pcaOrientation(img)
+    filterArrows(img)
 
     cv2.imshow('frame', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
