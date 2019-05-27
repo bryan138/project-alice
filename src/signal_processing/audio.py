@@ -68,6 +68,8 @@ if args.lofi:
     args.downsample = 10
 
 ID_THRESHOLD = 200
+DUDES = ['jackson', 'nicolas', 'theo', 'yweweler']
+DUDES = ['jackson']
 
 DTMF = [
     [941, 1336], #0
@@ -219,7 +221,8 @@ def get_fingerprint(path, plot = False):
     segments = segment_data(audioData, BUFFER_SIZE)
     for segment in segments:
         fft = scipy.fftpack.fft(segment)
-        trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
+        trimmedFFT = fft[:BUFFER_SIZE // 2];
+        trimmedFFT = np.abs(trimmedFFT);
         fingerprint = fingerprint + (trimmedFFT / len(segments))
 
     if plot:
@@ -231,12 +234,11 @@ def get_fingerprint(path, plot = False):
 
 def get_master_fingerprint(number, plot = False):
     master_fingerprint = np.zeros(BUFFER_SIZE // 2)
-    dudes = ['jackson', 'nicolas', 'theo', 'yweweler']
-    for dude in dudes:
+    for dude in DUDES:
         for i in range(50):
             fingerprint = get_fingerprint('./recordings/%d_%s_%d.wav' % (number, dude, i))
             master_fingerprint = master_fingerprint + fingerprint
-    master_fingerprint = master_fingerprint / (len(dudes) * 50)
+    master_fingerprint = master_fingerprint / (len(DUDES) * 50)
 
     if plot:
         fftData = np.interp(master_fingerprint, [0.0, FTT_CAP], [0, 1])
@@ -259,18 +261,16 @@ def identify_sample(master_fingerprints, test):
     return result
 
 def get_accuracy(number, master_fingerprints):
-    matches = 0
-    dudes = ['jackson', 'nicolas', 'theo', 'yweweler']
-    for dude in dudes:
+    matches = np.zeros(10)
+    for dude in DUDES:
         for i in range(1, 50):
             test = get_fingerprint('./recordings/%d_%s_%d.wav' % (number, dude, i))
             result = identify_sample(master_fingerprints, test)
-            matches = (matches + 1) if result == number else matches
-            # print(result)
+            matches[result] = matches[result] + 1
 
-    accuracy = matches / (len(dudes) * 50)
-    print(number, matches, accuracy)
-    return accuracy
+    matches = matches / (len(DUDES) * 50)
+    print(number, matches[number], matches)
+    return matches[number]
 
 
 if args.list_devices:
