@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import math
 
 
 def goodFeatures(img):
@@ -49,14 +50,28 @@ def drawContours(img):
 
     if len(contours) > 0:
         # Find the largest contour and draw its centroid
-        c = max(contours, key=cv2.contourArea)
-        M = cv2.moments(c)
+        largestContour = max(contours, key=cv2.contourArea)
+        M = cv2.moments(largestContour)
         cx = int(M['m10'] / M['m00'])
         cy = int(M['m01'] / M['m00'])
         cv2.line(img, (cx, 0), (cx, 720), (0, 0, 255), 1)
         cv2.line(img, (0, cy), (1280, cy), (0, 0, 255), 1)
 
         cv2.drawContours(img, contours, -1, (0, 255, 0), 3)
+
+    return contours
+
+def contourOrientation(img):
+    contours = drawContours(img)
+
+    if len(contours) > 0:
+        largestContour = max(contours, key=cv2.contourArea)
+        (x, y), (MA, ma), angle = cv2.fitEllipse(largestContour)
+
+        angle = math.radians(angle - 90)
+        x2 = x + MA * math.cos(angle)
+        y2 = y + MA * math.sin(angle)
+        cv2.line(img, (int(x), int(y)), (int(x2), int(y2)), (255, 255, 0), 2)
 
 
 # videoCapture = cv2.VideoCapture(0)
@@ -75,7 +90,8 @@ while True:
     # goodFeatures(img)
     # boundingRect(img)
     # houghLines(img)
-    drawContours(img)
+    # drawContours(img)
+    contourOrientation(img)
 
     cv2.imshow('frame', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
