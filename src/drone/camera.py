@@ -61,13 +61,14 @@ def drawContours(img):
 
 # videoCapture = cv2.VideoCapture(0)
 videoCapture = cv2.VideoCapture('http://192.168.43.92:8080/video')
-if not videoCapture.isOpened():
-    raise Exception('Couldn\'t establish video connection')
 
-while(True):
+while True:
     # Capture the frames
     ret, img = videoCapture.read()
     if img is None:
+        if not videoCapture.isOpened():
+            raise Exception('Couldn\'t establish video connection')
+
         print('No frame found')
         continue
 
