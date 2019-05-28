@@ -50,6 +50,7 @@ if any(c < 1 for c in args.channels):
 mapping = [c - 1 for c in args.channels]
 
 
+RECORDING_TIME = 0.6
 LOW_PASS_THRESHOLD = 0.05
 DUDES = ['jackson', 'nicolas', 'theo', 'yweweler']
 DUDES = ['jackson']
@@ -102,19 +103,20 @@ def audio_callback(indata, frames, time, status):
     # Fancy indexing with mapping creates a (necessary!) copy:
     q.put(indata[::args.downsample, mapping])
 
-    global recordingWord 
+    global recordingWord
     dataPoints = indata[::args.downsample]
     for value in dataPoints:
         if not recordingWord and abs(value) >= LOW_PASS_THRESHOLD:
             recordingWord = True
 
     global samples
-    if recordingWord and not paused and samples.shape[0] < BUFFER_SIZE:
+    recordingBankSize = int(RECORDING_TIME * SAMPLING_RATE)
+    if recordingWord and not paused and samples.shape[0] < recordingBankSize:
         # Grow sample buffer to desired size
-        n = min(dataPoints.shape[0], BUFFER_SIZE - samples.shape[0])
+        n = min(dataPoints.shape[0], recordingBankSize - samples.shape[0])
         samples = np.append(samples, dataPoints[:n])
 
-        if (samples.shape[0] == BUFFER_SIZE):
+        if (samples.shape[0] == recordingBankSize):
             # Buffer is complete, go to processing and clean up for next buffer
             process_sample_bufffer(samples)
             samples = np.array([])
