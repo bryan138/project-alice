@@ -60,6 +60,9 @@ BUFFER_SIZE = 512
 BUFFER_DISPLAY_SIZE = BUFFER_SIZE
 FFT_CAP = 25
 
+SPEAKER = 'pablo'
+WORD = '1'
+
 if args.hifi:
     SAMPLING_RATE = 48000
     BUFFER_SIZE = 512
@@ -109,16 +112,18 @@ def audio_callback(indata, frames, time, status):
         if not recordingWord and abs(value) >= LOW_PASS_THRESHOLD:
             recordingWord = True
 
-    global samples
+    global samples    
     recordingBankSize = int(RECORDING_TIME * SAMPLING_RATE)
     if recordingWord and not paused and samples.shape[0] < recordingBankSize:
         # Grow sample buffer to desired size
         n = min(dataPoints.shape[0], recordingBankSize - samples.shape[0])
         samples = np.append(samples, dataPoints[:n])
-
         if (samples.shape[0] == recordingBankSize):
             # Buffer is complete, go to processing and clean up for next buffer
-            process_sample_bufffer(samples)
+            # process_sample_bufffer(samples)
+            global recording_iteration
+            save_wav_file(samples, WORD, SPEAKER, recording_iteration)
+            recording_iteration += 1
             samples = np.array([])
             recordingWord = False
 
@@ -217,7 +222,7 @@ def get_accuracy(number, master_fingerprints):
     return matches[number]
 
 def save_wav_file(samples, word, speaker, iteration):
-    file_Name = word + speaker + str(iteration) + '.wav'
+    file_Name = word + '_' + speaker + '_' + str(iteration) + '.wav'
     wavfile.write(file_Name, SAMPLING_RATE, samples)
 
 if args.list_devices:
@@ -230,6 +235,7 @@ if args.samplerate is None:
     args.samplerate = SAMPLING_RATE
 
 recordingWord = False
+recording_iteration = 0 
 
 plt.rcParams['toolbar'] = 'None'
 length = int(args.window * args.samplerate / (1000 * args.downsample))
