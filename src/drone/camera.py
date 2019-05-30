@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 from math import atan2, cos, sin, sqrt, pi, radians
+from centroidtracker import CentroidTracker
 
 
 ARROW_MATCH_THRESHOLD = 0.75
@@ -144,11 +145,35 @@ def filterArrows(img):
 
     return arrows, otherContours
 
+def tracker(img):
+    rects = []
+
+    arrows, contours = filterArrows(img)
+    for arrow in arrows:
+		# Compute the bounding boxes for each arrow
+        startX, startY, width, height = cv2.boundingRect(arrow)
+        endX = startX + width
+        endY = startY + height
+
+        rects.append((startX, startY, endX, endY))
+
+		# Draw bounding boxes for each arrow
+        cv2.rectangle(img, (startX, startY), (endX, endY), (0, 255, 0), 2)
+
+    objects = centroidTracker.update(rects)
+    for (objectID, centroid) in objects.items():
+        # Draw ID and centroid of arrows
+        text = "ID {}".format(objectID)
+        cv2.putText(img, text, (centroid[0] - 10, centroid[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        cv2.circle(img, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
+
 
 # videoCapture = cv2.VideoCapture(0)
 videoCapture = cv2.VideoCapture('http://192.168.43.225:8080/video')
 
 arrowContour = getContours(cv2.imread("arrow.png"))[0]
+
+centroidTracker = CentroidTracker()
 
 while True:
     # Capture the frames
@@ -163,8 +188,9 @@ while True:
     # houghLines(img)
     # drawContours(img)
     # contourOrientation(img)
-    pcaOrientation(img)
+    # pcaOrientation(img)
     # filterArrows(img)
+    tracker(img)
 
     cv2.imshow('frame', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
