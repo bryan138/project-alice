@@ -65,30 +65,29 @@ def drawContours(img):
     return contours
 
 def contourOrientation(img):
-    contours = drawContours(img)
+    arrows, contours = filterArrows(img)
+    cv2.drawContours(img, arrows, -1, (0, 0, 255), 2)
+    cv2.drawContours(img, contours, -1, (0, 255, 0), 1)
 
-    if len(contours) > 0:
-        largestContour = max(contours, key=cv2.contourArea)
-        center, (MA, ma), angle = cv2.fitEllipse(largestContour)
-
+    for arrow in arrows:
+        center, (MA, ma), angle = cv2.fitEllipse(arrow)
         angle = radians(angle - 90)
         x = center[0] + MA * cos(angle)
         y = center[1] + MA * sin(angle)
         drawAxis(img, center, (x, y), (0, 255, 0), 1)
 
 def pcaOrientation(img):
-    contours = getContours(img)
+    arrows, contours = filterArrows(img)
+    cv2.drawContours(img, arrows, -1, (0, 0, 255), 2)
+    cv2.drawContours(img, contours, -1, (0, 255, 0), 1)
 
-    if len(contours) > 0:
-        largestContour = max(contours, key=cv2.contourArea)
-        cv2.drawContours(img, [largestContour], 0, (0, 0, 255), 2);
-
+    for arrow in arrows:
         # Construct a buffer used by the PCA analysis
-        size = len(largestContour)
+        size = len(arrow)
         dataPoints = np.empty((size, 2), dtype=np.float64)
         for i in range(dataPoints.shape[0]):
-            dataPoints[i, 0] = largestContour[i, 0, 0]
-            dataPoints[i, 1] = largestContour[i, 0, 1]
+            dataPoints[i, 0] = arrow[i, 0, 0]
+            dataPoints[i, 1] = arrow[i, 0, 1]
 
         # Perform PCA analysis
         mean = np.empty((0))
@@ -102,9 +101,8 @@ def pcaOrientation(img):
         drawAxis(img, center, p1, (0, 255, 0), 1)
         drawAxis(img, center, p2, (255, 255, 0), 2)
 
-        angle = atan2(eigenVectors[0, 1], eigenVectors[0, 0])
-
-        return angle
+        # angle = atan2(eigenVectors[0, 1], eigenVectors[0, 0])
+        # return angle
 
 def drawAxis(img, p, q, colour, scale):
     p = list(p)
@@ -129,6 +127,9 @@ def drawAxis(img, p, q, colour, scale):
 
 def filterArrows(img):
     contours = getContours(img)
+
+    arrows = []
+    otherContours = []
     for contour in contours:
         # Ignore contours that are too small or too large
         area = cv2.contourArea(contour)
@@ -137,13 +138,15 @@ def filterArrows(img):
 
         matches = cv2.matchShapes(contour, arrowContour, cv2.CONTOURS_MATCH_I2, 0)
         if matches < ARROW_MATCH_THRESHOLD:
-            cv2.drawContours(img, [contour], 0, (0, 0, 255), 2);
+            arrows.append(contour)
         else:
-            cv2.drawContours(img, [contour], 0, (0, 255, 0), 1);
+            otherContours.append(contour)
+
+    return arrows, otherContours
 
 
 # videoCapture = cv2.VideoCapture(0)
-videoCapture = cv2.VideoCapture('http://192.168.0.17:8080/video')
+videoCapture = cv2.VideoCapture('http://192.168.43.225:8080/video')
 
 arrowContour = getContours(cv2.imread("arrow.png"))[0]
 
@@ -160,8 +163,8 @@ while True:
     # houghLines(img)
     # drawContours(img)
     # contourOrientation(img)
-    # pcaOrientation(img)
-    filterArrows(img)
+    pcaOrientation(img)
+    # filterArrows(img)
 
     cv2.imshow('frame', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
