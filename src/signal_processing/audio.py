@@ -58,7 +58,7 @@ DUDES = ['jackson']
 SAMPLING_RATE = 8000
 BUFFER_SIZE = 512
 BUFFER_DISPLAY_SIZE = int(RECORDING_TIME * SAMPLING_RATE)
-FFT_CAP = 50
+FFT_CAP = 20
 
 SPEAKER = 'pablo'
 WORD = '1'
@@ -265,7 +265,7 @@ textAxes = figure.add_subplot(grid[1, 3])
 
 # FFT plot
 fftLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), xf, np.zeros((BUFFER_SIZE // 2)))
-fftAxes.axis((0, args.samplerate / (2.0 * args.downsample), 0, 10))
+fftAxes.axis((0, args.samplerate / (2.0 * args.downsample), 0, FFT_CAP))
 fftAxes.set_xticks(np.linspace(0, (args.samplerate / args.downsample) // 2, 6))
 fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
 
