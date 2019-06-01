@@ -5,6 +5,7 @@ from centroidtracker import CentroidTracker
 
 
 ARROW_MATCH_THRESHOLD = 0.75
+CONTOUR_AREA_FILTER = (750, 17500)
 
 
 def goodFeatures(img):
@@ -134,7 +135,7 @@ def filterArrows(img):
     for contour in contours:
         # Ignore contours that are too small or too large
         area = cv2.contourArea(contour)
-        if area < 1e2 or 1e5 < area:
+        if area < CONTOUR_AREA_FILTER[0] or CONTOUR_AREA_FILTER[1] < area:
             continue
 
         matches = cv2.matchShapes(contour, arrowContour, cv2.CONTOURS_MATCH_I2, 0)
@@ -144,6 +145,10 @@ def filterArrows(img):
             otherContours.append(contour)
 
     return arrows, otherContours
+
+def putText(text, contour, img):
+    (x, y), radius = cv2.minEnclosingCircle(contour)
+    cv2.putText(img, text, (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
 def tracker(arrows, img):
     rects = []
