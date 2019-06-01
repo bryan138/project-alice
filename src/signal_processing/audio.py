@@ -46,11 +46,11 @@ parser.add_argument(
     'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
     help='input channels to plot (default: the first)')
 parser.add_argument(
-    '-spk', type=str, help='Who is recording?')
+    '-spk','--speaker', type=str, help='Who is recording?')
 parser.add_argument(
-    '-word',type=str, help = 'Word that will be recorded')
+    'word',type=str, help = 'Word that will be recorded')
 parser.add_argument(
-    '-sf',type=str, help = 'Save .wav samplings to folder')
+    '-sf','savefile',type=str, help = 'Save .wav samplings to folder')
 
 args = parser.parse_args()
 if any(c < 1 for c in args.channels):
