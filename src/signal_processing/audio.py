@@ -50,8 +50,8 @@ if any(c < 1 for c in args.channels):
 mapping = [c - 1 for c in args.channels]
 
 
-RECORDING_TIME = 0.6
-LOW_PASS_THRESHOLD = 0.05
+RECORDING_TIME = 0.5
+LOW_PASS_THRESHOLD = 0.075
 DUDES = ['jackson', 'nicolas', 'theo', 'yweweler']
 DUDES = ['jackson']
 
@@ -81,14 +81,15 @@ samples = np.array([])
 paused = False
 
 def process_sample_bufffer(samples):
-    global fft
 
     # Plot buffer
     lines[2].set_ydata(samples[:BUFFER_DISPLAY_SIZE])
 
-    # Compute FFT
-    fft = scipy.fftpack.fft(samples)
-    trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
+    # Identify data
+    identified = True
+    test = generate_fingerprint(samples)
+    test2 = get_fingerprint('./6_bryan_0.wav')
+    result, error = identify_sample(master_fingerprints, test)
 
     # Plot FFT
     fftData = np.interp(trimmedFFT, [0.0, FFT_CAP], [0, 1])
@@ -100,7 +101,7 @@ def process_sample_bufffer(samples):
     confidence = float('Inf')
 
     resultText.set_text(result)
-    confidenceText.set_text('{0:.2f}'.format(confidence) if identified else '')
+    confidenceText.set_text('{0:.2f}'.format(error) if identified else '')
 
 def audio_callback(indata, frames, time, status):
     # Fancy indexing with mapping creates a (necessary!) copy:
@@ -119,13 +120,17 @@ def audio_callback(indata, frames, time, status):
         n = min(dataPoints.shape[0], recordingBankSize - samples.shape[0])
         samples = np.append(samples, dataPoints[:n])
         if (samples.shape[0] == recordingBankSize):
-            # Buffer is complete, go to processing and clean up for next buffer
-            # process_sample_bufffer(samples)
-            global recording_iteration
-            save_wav_file(samples, WORD, SPEAKER, recording_iteration)
-            recording_iteration += 1
-            samples = np.array([])
+            # Buffer is complete, process audio samples
+            process_sample_bufffer(samples)
+
+            if False:
+                # Save recorded samples to wav file
+                global recording_iteration
+                save_wav_file(samples, WORD, SPEAKER, recording_iteration)
+                recording_iteration += 1
+
             recordingWord = False
+            samples = np.array([])
 
 def update_plot(frame):
     global plotdata
@@ -139,7 +144,7 @@ def update_plot(frame):
         plotdata[-shift:, :] = data
 
     for column, line in enumerate(lines):
-        if column < len(lines) - 2:
+        if column < len(lines) - 3:
             line.set_ydata(plotdata[:, column])
     return lines
 
@@ -163,6 +168,13 @@ def get_fingerprint(path, plot = False):
     # Get audio data and prepare for processing
     samplingFrequency, audioData = wavfile.read(path)
     audioData = np.array(audioData)
+
+    if len(audioData.shape) > 1 and audioData.shape[1] > 1:
+        audioData = audioData[:, 1]
+
+    return generate_fingerprint(audioData, plot)
+
+def generate_fingerprint(audioData, plot = False):
     audioData = np.interp(audioData, [np.amin(audioData), np.amax(audioData)] , [-1.0, 1.0])
 
     # Generate fingerprint by segmenting samples and averaging FFTs
@@ -195,7 +207,7 @@ def get_master_fingerprint(number, plot = False):
 
     return master_fingerprint
 
-def identify_sample(master_fingerprints, test):
+def identify_sample(master_fingerprints, test, plot = False):
     min_error = float('Inf')
     result = -1
     for index, master in enumerate(master_fingerprints):
@@ -207,14 +219,14 @@ def identify_sample(master_fingerprints, test):
             min_error = error
             result = index
 
-    return result
+    return result, error
 
 def get_accuracy(number, master_fingerprints):
     matches = np.zeros(10)
     for dude in DUDES:
         for i in range(1, 50):
             test = get_fingerprint('./recordings/%d_%s_%d.wav' % (number, dude, i))
-            result = identify_sample(master_fingerprints, test)
+            result, error = identify_sample(master_fingerprints, test)
             matches[result] = matches[result] + 1
 
     matches = matches / (len(DUDES) * 50)
