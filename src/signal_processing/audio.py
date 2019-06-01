@@ -57,8 +57,8 @@ DUDES = ['jackson']
 
 SAMPLING_RATE = 8000
 BUFFER_SIZE = 512
-BUFFER_DISPLAY_SIZE = BUFFER_SIZE
-FFT_CAP = 25
+BUFFER_DISPLAY_SIZE = int(RECORDING_TIME * SAMPLING_RATE)
+FFT_CAP = 50
 
 SPEAKER = 'pablo'
 WORD = '1'
@@ -82,23 +82,18 @@ paused = False
 
 def process_sample_bufffer(samples):
 
-    # Plot buffer
-    lines[2].set_ydata(samples[:BUFFER_DISPLAY_SIZE])
-
     # Identify data
     identified = True
     test = generate_fingerprint(samples)
     test2 = get_fingerprint('./6_bryan_0.wav')
     result, error = identify_sample(master_fingerprints, test)
 
-    # Plot FFT
-    fftData = np.interp(trimmedFFT, [0.0, FFT_CAP], [0, 1])
-    lines[1].set_ydata(fftData)
+    # Plot fingerprints
+    lines[1].set_ydata(test)
+    lines[2].set_ydata(master_fingerprints[result])
 
-    # Identify data
-    identified = False
-    result = '--'
-    confidence = float('Inf')
+    # Plot raw test audio wave
+    lines[3].set_ydata(samples[:BUFFER_DISPLAY_SIZE])
 
     resultText.set_text(result)
     confidenceText.set_text('{0:.2f}'.format(error) if identified else '')
@@ -219,6 +214,13 @@ def identify_sample(master_fingerprints, test, plot = False):
             min_error = error
             result = index
 
+    if plot:
+        plt.figure()
+        plt.plot(test, label='TEST')
+        plt.plot(master_fingerprints[result], label=result)
+        plt.legend(loc=2)
+        plt.show(block=False)
+
     return result, error
 
 def get_accuracy(number, master_fingerprints):
@@ -262,8 +264,8 @@ bufferAxes = figure.add_subplot(grid[1, :3])
 textAxes = figure.add_subplot(grid[1, 3])
 
 # FFT plot
-fftLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)))
-fftAxes.axis((0, args.samplerate / (2.0 * args.downsample), 0, 1))
+fftLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), xf, np.zeros((BUFFER_SIZE // 2)))
+fftAxes.axis((0, args.samplerate / (2.0 * args.downsample), 0, 10))
 fftAxes.set_xticks(np.linspace(0, (args.samplerate / args.downsample) // 2, 6))
 fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
 
@@ -294,7 +296,7 @@ textAxes.axis('off')
 figure.tight_layout(pad=0.5)
 figure.canvas.mpl_connect('key_press_event', key_press)
 
-lines = [samplingLines[0], fftLines[0], bufferLines[0]]
+lines = [samplingLines[0], fftLines[0], fftLines[1], bufferLines[0]]
 
 # Generate master fingerprints for all numbers
 master_fingerprints = []
