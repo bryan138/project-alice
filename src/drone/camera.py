@@ -158,11 +158,14 @@ def tracker(arrows, img):
         startX, startY, width, height = cv2.boundingRect(arrow)
         endX = startX + width
         endY = startY + height
-
         rects.append((startX, startY, endX, endY))
 
 		# Draw bounding boxes for each arrow
         cv2.rectangle(img, (startX, startY), (endX, endY), (0, 255, 0), 2)
+
+    center = (img.shape[1] / 2, img.shape[0] / 2)
+    centermostCentroid = -1
+    centermostDistance = float('inf')
 
     objects = centroidTracker.update(rects)
     for (objectID, centroid) in objects.items():
@@ -171,9 +174,32 @@ def tracker(arrows, img):
         cv2.putText(img, text, (centroid[0] - 10, centroid[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         cv2.circle(img, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
 
+        distanceFromCenter = abs(center[0] - centroid[0]) + abs(center[1] - centroid[1])
+        if distanceFromCenter < centermostDistance:
+            centermostDistance = distanceFromCenter
+            centermostCentroid = centroid
 
-# videoCapture = cv2.VideoCapture(0)
-videoCapture = cv2.VideoCapture('http://192.168.0.118:8080/video')
+    if centermostCentroid is not -1:
+        # Look for contour with the centermost centroid
+        for arrow in arrows:
+            startX, startY, width, height = cv2.boundingRect(arrow)
+            endX = startX + width
+            endY = startY + height
+
+            arrowCenterX = int((startX + endX) / 2.0)
+            arrowCenterY = int((startY + endY) / 2.0)
+
+            if centermostCentroid[0] == arrowCenterX and centermostCentroid[1] == arrowCenterY:
+                cv2.drawContours(img, [arrow], -1, (255, 255, 0), 3)
+
+useWebCam = not True
+
+if useWebCam:
+    videoCapture = cv2.VideoCapture(0)
+    videoCapture.set(cv2.CAP_PROP_FRAME_WIDTH, 360)
+    videoCapture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+else:
+    videoCapture = cv2.VideoCapture('http://192.168.0.118:8080/video')
 
 arrowContour = getContours(cv2.imread("arrow.png"))[0]
 
@@ -189,7 +215,7 @@ while True:
 
     arrows, contours = filterArrows(img)
     cv2.drawContours(img, arrows, -1, (0, 0, 255), 2)
-    cv2.drawContours(img, contours, -1, (0, 255, 0), 1)
+    cv2.drawContours(img, contours, -1, (255, 0, 0), 1)
 
     # goodFeatures(img)
     # boundingRect(img)
@@ -198,7 +224,7 @@ while True:
     # contourOrientation(img)
     # pcaOrientation(img)
     # filterArrows(img)
-    # tracker(arrows, img)
+    tracker(arrows, img)
 
     cv2.imshow('frame', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
