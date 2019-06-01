@@ -4,8 +4,8 @@ from math import atan2, cos, sin, sqrt, pi, radians
 from centroidtracker import CentroidTracker
 
 
-ARROW_MATCH_THRESHOLD = 0.75
-CONTOUR_AREA_FILTER = (750, 17500)
+ARROW_MATCH_THRESHOLD = 0.1
+CONTOUR_AREA_FILTER = (800, 15000)
 
 
 def goodFeatures(img):
@@ -46,8 +46,8 @@ def houghLines(img):
 def getContours(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    ret, thresh = cv2.threshold(blur, 80, 255, cv2.THRESH_BINARY_INV)
-    contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    ret, thresh = cv2.threshold(blur, 128, 255, cv2.THRESH_BINARY_INV)
+    contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     return contours
 
 def drawContours(img):
@@ -138,7 +138,7 @@ def filterArrows(img):
         if area < CONTOUR_AREA_FILTER[0] or CONTOUR_AREA_FILTER[1] < area:
             continue
 
-        matches = cv2.matchShapes(contour, arrowContour, cv2.CONTOURS_MATCH_I2, 0)
+        matches = cv2.matchShapes(contour, arrowContour, cv2.CONTOURS_MATCH_I3, 0)
         if matches < ARROW_MATCH_THRESHOLD:
             arrows.append(contour)
         else:
@@ -148,7 +148,7 @@ def filterArrows(img):
 
 def putText(text, contour, img):
     (x, y), radius = cv2.minEnclosingCircle(contour)
-    cv2.putText(img, text, (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    cv2.putText(img, text, (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
 def tracker(arrows, img):
     rects = []
@@ -198,7 +198,7 @@ while True:
     # contourOrientation(img)
     # pcaOrientation(img)
     # filterArrows(img)
-    tracker(arrows, img)
+    # tracker(arrows, img)
 
     cv2.imshow('frame', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
