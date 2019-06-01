@@ -3,6 +3,8 @@
 import argparse
 import queue
 import sys
+import os
+import pathlib
 import numpy as np
 import sounddevice as sd
 import matplotlib.pyplot as plt
@@ -10,7 +12,7 @@ import scipy.fftpack
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 from matplotlib.animation import FuncAnimation
-from datetime import datetime
+import datetime
 
 def int_or_str(text):
     try:
@@ -48,9 +50,9 @@ parser.add_argument(
 parser.add_argument(
     '-spk','--speaker', type=str, help='Who is recording?')
 parser.add_argument(
-    'word',type=str, help = 'Word that will be recorded')
+    'wd','--word',type=str, help = 'Word that will be recorded')
 parser.add_argument(
-    '-sf','savefile',type=str, help = 'Save .wav samplings to folder')
+    '-sf','--savefile', action='store_true', help = 'Save .wav samplings to folder')
 
 args = parser.parse_args()
 if any(c < 1 for c in args.channels):
@@ -68,8 +70,18 @@ BUFFER_SIZE = 512
 BUFFER_DISPLAY_SIZE = BUFFER_SIZE
 FFT_CAP = 25
 
-SPEAKER = 'pablo'
-WORD = '1'
+if args.speaker:
+    SPEAKER = args.speaker
+
+if args.word:    
+    WORD = '1'
+
+now = datetime.datetime.now()
+# Dejalo como quieras dependiendo si quieren que se guarden en la misma carpeta si vuelves a correr el programa
+FOLDER_NAME = '{:02d}'.format(now.month)+'_'+'{:02d}'.format(now.day)+'_'+'{:02d}'.format(now.hour)
+FOLDER_NAME = FOLDER_NAME+'{:02d}'.format(now.minute)
+FOLDER_NAME = FOLDER_NAME+'{:02d}'.format(now.second)
+FOLDER_NAME = FOLDER_NAME + '_audio-wav'
 
 if args.hifi:
     SAMPLING_RATE = 48000
@@ -230,8 +242,11 @@ def get_accuracy(number, master_fingerprints):
     return matches[number]
 
 def save_wav_file(samples, word, speaker, iteration):
+    if not os.path.exists('/'+FOLDER_NAME):
+        os.makedirs('/'+FOLDER_NAME)
     file_Name = word + '_' + speaker + '_' + str(iteration) + '.wav'
-    wavfile.write(file_Name, SAMPLING_RATE, samples)
+    file_Path = os.path.join(FOLDER_NAME,file_Name)
+    wavfile.write(file_Path, SAMPLING_RATE, samples)
 
 if args.list_devices:
     print(sd.query_devices())
