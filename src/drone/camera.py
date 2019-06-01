@@ -145,10 +145,9 @@ def filterArrows(img):
 
     return arrows, otherContours
 
-def tracker(img):
+def tracker(arrows, img):
     rects = []
 
-    arrows, contours = filterArrows(img)
     for arrow in arrows:
 		# Compute the bounding boxes for each arrow
         startX, startY, width, height = cv2.boundingRect(arrow)
@@ -169,7 +168,7 @@ def tracker(img):
 
 
 # videoCapture = cv2.VideoCapture(0)
-videoCapture = cv2.VideoCapture('http://192.168.43.225:8080/video')
+videoCapture = cv2.VideoCapture('http://192.168.0.118:8080/video')
 
 arrowContour = getContours(cv2.imread("arrow.png"))[0]
 
@@ -183,6 +182,10 @@ while True:
             raise Exception('Couldn\'t establish video connection')
         raise Exception('No frame found')
 
+    arrows, contours = filterArrows(img)
+    cv2.drawContours(img, arrows, -1, (0, 0, 255), 2)
+    cv2.drawContours(img, contours, -1, (0, 255, 0), 1)
+
     # goodFeatures(img)
     # boundingRect(img)
     # houghLines(img)
@@ -190,7 +193,7 @@ while True:
     # contourOrientation(img)
     # pcaOrientation(img)
     # filterArrows(img)
-    tracker(img)
+    tracker(arrows, img)
 
     cv2.imshow('frame', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):

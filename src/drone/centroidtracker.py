@@ -35,9 +35,8 @@ class CentroidTracker():
 		# check to see if the list of input bounding box rectangles
 		# is empty
 		if len(rects) == 0:
-			# loop over any existing tracked objects and mark them
-			# as disappeared
-			for objectID in self.disappeared.keys():
+			# loop over any existing tracked objects and mark them as disappeared
+			for objectID in self.disappeared.copy().keys():
 				self.disappeared[objectID] += 1
 
 				# if we have reached a maximum number of consecutive
