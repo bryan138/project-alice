@@ -10,6 +10,7 @@ import scipy.fftpack
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 from matplotlib.animation import FuncAnimation
+from datetime import datetime
 
 def int_or_str(text):
     try:
@@ -44,6 +45,13 @@ parser.add_argument(
 parser.add_argument(
     'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
     help='input channels to plot (default: the first)')
+parser.add_argument(
+    '-spk', type=str, help='Who is recording?')
+parser.add_argument(
+    '-word',type=str, help = 'Word that will be recorded')
+parser.add_argument(
+    '-sf',type=str, help = 'Save .wav samplings to folder')
+
 args = parser.parse_args()
 if any(c < 1 for c in args.channels):
     parser.error('argument CHANNEL: must be >= 1')
