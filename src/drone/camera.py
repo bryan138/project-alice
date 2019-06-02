@@ -77,6 +77,15 @@ def contourOrientation(arrows, img):
         y = center[1] + MA * sin(angle)
         drawAxis(img, center, (x, y), (0, 255, 0), 1)
 
+def getPointSide(p, p1, p2):
+    return (p[0] - p1[0]) * (p2[1] - p1[1]) - (p[1] - p1[1]) * (p2[0] - p1[0])
+
+def rotatePoint(point, reference, angle):
+    rotatedPoint = [0, 0]
+    rotatedPoint[0] = (point[0] - reference[0]) * cos(angle) - (point[1] - reference[1]) * sin(angle) + reference[0]
+    rotatedPoint[1] = (point[0] - reference[0]) * sin(angle) + (point[1] - reference[1]) * cos(angle) + reference[1]
+    return rotatedPoint
+
 def pcaOrientation(arrows, img):
     for arrow in arrows:
         # Construct a buffer used by the PCA analysis
@@ -90,13 +99,28 @@ def pcaOrientation(arrows, img):
         mean = np.empty((0))
         mean, eigenVectors, eigenValues = cv2.PCACompute2(dataPoints, mean)
         center = (int(mean[0, 0]), int(mean[0, 1]))
+        majorAxis = (center[0] + 0.02 * eigenVectors[0, 0] * eigenValues[0, 0], center[1] + 0.02 * eigenVectors[0, 1] * eigenValues[0, 0])
+        minorAxis = (center[0] - 0.02 * eigenVectors[1, 0] * eigenValues[1, 0], center[1] - 0.02 * eigenVectors[1, 1] * eigenValues[1, 0])
+
+        # Count points in each side of the minor axis
+        pointCount = [0, 0]
+        for component in arrow:
+            point = (component[0, 0], component[0, 1])
+            side = getPointSide(point, center, minorAxis)
+            if side < 0:
+                pointCount[0] += 1
+            else:
+                pointCount[1] += 1
+
+        # Correct orientation of major axis, if necessary
+        arrowOrientation = -1 if pointCount[0] > pointCount[1] else 1
+        if np.sign(arrowOrientation) != np.sign(getPointSide(majorAxis, center, minorAxis)):
+            majorAxis = rotatePoint(majorAxis, center, pi)
 
         # Draw the principal components
-        cv2.circle(img, center, 3, (255, 0, 255), 2)
-        p1 = (center[0] + 0.02 * eigenVectors[0, 0] * eigenValues[0, 0], center[1] + 0.02 * eigenVectors[0, 1] * eigenValues[0, 0])
-        p2 = (center[0] - 0.02 * eigenVectors[1, 0] * eigenValues[1, 0], center[1] - 0.02 * eigenVectors[1, 1] * eigenValues[1, 0])
-        drawAxis(img, center, p1, (0, 255, 0), 1)
-        drawAxis(img, center, p2, (255, 255, 0), 2)
+        cv2.circle(img, center, 3, (255, 0, 255), 1)
+        drawAxis(img, center, majorAxis, (0, 255, 255), 1)
+        drawAxis(img, center, minorAxis, (255, 255, 0), 2)
 
         # angle = atan2(eigenVectors[0, 1], eigenVectors[0, 0])
         # return angle
@@ -111,16 +135,16 @@ def drawAxis(img, p, q, colour, scale):
     # Draw arrow axis
     q[0] = p[0] - scale * hypotenuse * cos(angle)
     q[1] = p[1] - scale * hypotenuse * sin(angle)
-    cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 2, cv2.LINE_AA)
+    cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv2.LINE_AA)
 
     # Draw arrow head hooks
     p[0] = q[0] + 9 * cos(angle + pi / 4)
     p[1] = q[1] + 9 * sin(angle + pi / 4)
-    cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 2, cv2.LINE_AA)
+    cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv2.LINE_AA)
 
     p[0] = q[0] + 9 * cos(angle - pi / 4)
     p[1] = q[1] + 9 * sin(angle - pi / 4)
-    cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 2, cv2.LINE_AA)
+    cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv2.LINE_AA)
 
 def randomColor():
     return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
@@ -138,7 +162,7 @@ def filterArrows(img):
 
         matches = cv2.matchShapes(contour, arrowContour, cv2.CONTOURS_MATCH_I3, 0)
         if matches < ARROW_MATCH_THRESHOLD:
-            epsilon = 0.03 * cv2.arcLength(contour, True)
+            epsilon = 0.02 * cv2.arcLength(contour, True)
             arrow = cv2.approxPolyDP(contour, epsilon, True)
             arrows.append(arrow)
         else:
