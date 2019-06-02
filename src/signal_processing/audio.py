@@ -4,7 +4,7 @@ import argparse
 import queue
 import sys
 import os
-import pathlib
+import pathlib as path
 import numpy as np
 import sounddevice as sd
 import matplotlib.pyplot as plt
