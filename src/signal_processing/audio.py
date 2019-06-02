@@ -50,7 +50,7 @@ parser.add_argument(
 parser.add_argument(
     '-spk','--speaker', type=str, help='Who is recording?')
 parser.add_argument(
-    'wd','--word',type=str, help = 'Word that will be recorded')
+    '-wd','--word',type=str, help = 'Word that will be recorded')
 parser.add_argument(
     '-sf','--savefile', action='store_true', help = 'Save .wav samplings to folder')
 
@@ -74,7 +74,7 @@ if args.speaker:
     SPEAKER = args.speaker
 
 if args.word:    
-    WORD = '1'
+    WORD = args.word
 
 now = datetime.datetime.now()
 # Dejalo como quieras dependiendo si quieren que se guarden en la misma carpeta si vuelves a correr el programa
