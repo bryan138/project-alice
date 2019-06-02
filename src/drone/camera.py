@@ -66,11 +66,7 @@ def drawContours(img):
 
     return contours
 
-def contourOrientation(img):
-    arrows, contours = filterArrows(img)
-    cv2.drawContours(img, arrows, -1, (0, 0, 255), 2)
-    cv2.drawContours(img, contours, -1, (0, 255, 0), 1)
-
+def contourOrientation(arrows, img):
     for arrow in arrows:
         center, (MA, ma), angle = cv2.fitEllipse(arrow)
         angle = radians(angle - 90)
@@ -78,11 +74,7 @@ def contourOrientation(img):
         y = center[1] + MA * sin(angle)
         drawAxis(img, center, (x, y), (0, 255, 0), 1)
 
-def pcaOrientation(img):
-    arrows, contours = filterArrows(img)
-    cv2.drawContours(img, arrows, -1, (0, 0, 255), 2)
-    cv2.drawContours(img, contours, -1, (0, 255, 0), 1)
-
+def pcaOrientation(arrows, img):
     for arrow in arrows:
         # Construct a buffer used by the PCA analysis
         size = len(arrow)
@@ -221,10 +213,10 @@ while True:
     # boundingRect(img)
     # houghLines(img)
     # drawContours(img)
-    # contourOrientation(img)
-    # pcaOrientation(img)
+    # contourOrientation(arrows, img)
+    pcaOrientation(arrows, img)
     # filterArrows(img)
-    tracker(arrows, img)
+    # tracker(arrows, img)
 
     cv2.imshow('frame', img)
     if cv2.waitKey(1) & 0xFF == ord('q'):
