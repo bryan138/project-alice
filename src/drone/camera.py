@@ -4,6 +4,8 @@ from math import atan2, cos, sin, sqrt, pi, radians
 from centroidtracker import CentroidTracker
 
 
+SOURCE = 1 # 0 - Stream, 1 - Photo, default - Webcam
+
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
 
@@ -184,22 +186,26 @@ def tracker(arrows, img):
             if centermostCentroid[0] == arrowCenterX and centermostCentroid[1] == arrowCenterY:
                 cv2.drawContours(img, [arrow], -1, (255, 255, 0), 3)
 
-useWebCam = not True
-
-if useWebCam:
+if SOURCE == 0:
+    videoCapture = cv2.VideoCapture('http://192.168.0.118:8080/video')
+elif SOURCE == 1:
+    videoCapture = cv2.VideoCapture('assets/arrow_photo.jpg')
+else:
     videoCapture = cv2.VideoCapture(0)
     videoCapture.set(cv2.CAP_PROP_FRAME_WIDTH, 360)
     videoCapture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-else:
-    videoCapture = cv2.VideoCapture('http://192.168.0.118:8080/video')
 
-arrowContour = getContours(cv2.imread("arrow.png"))[0]
+arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
 
 centroidTracker = CentroidTracker()
 
 while True:
-    # Capture the frames
-    ret, img = videoCapture.read()
+    if SOURCE == 1:
+        img = cv2.imread('assets/arrow_photo.jpg')
+        img = cv2.resize(img, (562, 421))
+    else:
+        ret, img = videoCapture.read()
+
     if img is None:
         if not videoCapture.isOpened():
             raise Exception('Couldn\'t establish video connection')
