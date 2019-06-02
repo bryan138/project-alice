@@ -55,12 +55,13 @@ LOW_PASS_THRESHOLD = 0.075
 DUDES = ['jackson', 'nicolas', 'theo', 'yweweler']
 DUDES = ['jackson']
 
+RECORDING_SAMPLING_RATE = 48000
 SAMPLING_RATE = 8000
-BUFFER_SIZE = 512
-BUFFER_DISPLAY_SIZE = int(RECORDING_TIME * SAMPLING_RATE)
+BUFFER_SIZE = 256
+BUFFER_DISPLAY_SIZE = int(RECORDING_TIME * RECORDING_SAMPLING_RATE)
 FFT_CAP = 20
 
-SPEAKER = 'pablo'
+SPEAKER = 'fake_jackson'
 WORD = '1'
 
 if args.hifi:
@@ -81,11 +82,9 @@ samples = np.array([])
 paused = False
 
 def process_sample_bufffer(samples):
-
     # Identify data
     identified = True
-    test = generate_fingerprint(samples)
-    test2 = get_fingerprint('./6_bryan_0.wav')
+    test = generate_fingerprint(samples[0::(RECORDING_SAMPLING_RATE // SAMPLING_RATE)])
     result, error = identify_sample(master_fingerprints, test)
 
     # Plot fingerprints
@@ -109,7 +108,7 @@ def audio_callback(indata, frames, time, status):
             recordingWord = True
 
     global samples
-    recordingBankSize = int(RECORDING_TIME * SAMPLING_RATE)
+    recordingBankSize = int(RECORDING_TIME * RECORDING_SAMPLING_RATE)
     if recordingWord and not paused and samples.shape[0] < recordingBankSize:
         # Grow sample buffer to desired size
         n = min(dataPoints.shape[0], recordingBankSize - samples.shape[0])
@@ -237,7 +236,7 @@ def get_accuracy(number, master_fingerprints):
 
 def save_wav_file(samples, word, speaker, iteration):
     file_Name = word + '_' + speaker + '_' + str(iteration) + '.wav'
-    wavfile.write(file_Name, SAMPLING_RATE, samples)
+    wavfile.write(file_Name, RECORDING_SAMPLING_RATE, samples)
 
 if args.list_devices:
     print(sd.query_devices())
@@ -246,7 +245,7 @@ if args.list_devices:
 if args.samplerate is None:
     # device_info = sd.query_devices(args.device, 'input')
     # args.samplerate = device_info['default_samplerate']
-    args.samplerate = SAMPLING_RATE
+    args.samplerate = RECORDING_SAMPLING_RATE
 
 recordingWord = False
 recording_iteration = 0
