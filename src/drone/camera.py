@@ -1,5 +1,6 @@
 import numpy as np
 import cv2
+import random
 from math import atan2, cos, sin, sqrt, pi, radians
 from centroidtracker import CentroidTracker
 
@@ -121,6 +122,9 @@ def drawAxis(img, p, q, colour, scale):
     p[1] = q[1] + 9 * sin(angle - pi / 4)
     cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 2, cv2.LINE_AA)
 
+def randomColor():
+    return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
 def filterArrows(img):
     contours = getContours(img)
 
@@ -134,7 +138,9 @@ def filterArrows(img):
 
         matches = cv2.matchShapes(contour, arrowContour, cv2.CONTOURS_MATCH_I3, 0)
         if matches < ARROW_MATCH_THRESHOLD:
-            arrows.append(contour)
+            epsilon = 0.03 * cv2.arcLength(contour, True)
+            arrow = cv2.approxPolyDP(contour, epsilon, True)
+            arrows.append(arrow)
         else:
             otherContours.append(contour)
 
