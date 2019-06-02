@@ -154,8 +154,9 @@ def key_press(event):
 def segment_data(data, size):
     segments = []
     for i in range(0, data.shape[0], size - int(size * FRAME_OVERLAP)):
-        if i + size < data.shape[0]:
-            segments.append(data[i:i + size])
+        segment = data[i:min(data.shape[0], i + size)]
+        segment = np.append(segment, np.zeros(size -  segment.shape[0]))
+        segments.append(segment)
     return segments
 
 def get_fingerprint(path, plot = False):
