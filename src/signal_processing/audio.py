@@ -54,6 +54,10 @@ RECORDING_TIME = 0.5
 LOW_PASS_THRESHOLD = 0.075
 DUDES = ['jackson', 'nicolas', 'theo', 'yweweler']
 DUDES = ['jackson']
+SPEAKER = 'fake_jackson'
+WORD = '1'
+
+FRAME_OVERLAP = 0.25
 
 RECORDING_SAMPLING_RATE = 48000
 SAMPLING_RATE = 8000
@@ -61,8 +65,6 @@ BUFFER_SIZE = 256
 BUFFER_DISPLAY_SIZE = int(RECORDING_TIME * RECORDING_SAMPLING_RATE)
 FFT_CAP = 20
 
-SPEAKER = 'fake_jackson'
-WORD = '1'
 
 if args.hifi:
     SAMPLING_RATE = 48000
@@ -151,7 +153,7 @@ def key_press(event):
 
 def segment_data(data, size):
     segments = []
-    for i in range(0, data.shape[0], size):
+    for i in range(0, data.shape[0], size - int(size * FRAME_OVERLAP)):
         if i + size < data.shape[0]:
             segments.append(data[i:i + size])
     return segments
