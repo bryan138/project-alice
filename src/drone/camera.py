@@ -5,7 +5,7 @@ from math import atan2, cos, sin, sqrt, pi, radians
 from centroidtracker import CentroidTracker
 
 
-SOURCE = 2 # 0 - Stream, 1 - Photo, 2 - Video, default - Webcam
+SOURCE = 3 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, default - Webcam
 
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
@@ -286,8 +286,9 @@ if SOURCE == 0:
     videoCapture = cv2.VideoCapture('http://192.168.43.80:8080/video')
 elif SOURCE == 1:
     videoCapture = cv2.VideoCapture('assets/arrow_photo.jpg')
-elif SOURCE == 2:
-    videoCapture = cv2.VideoCapture('assets/arrow_video.mp4')
+elif SOURCE == 2 or SOURCE == 3:
+    videoSourcePath = 'assets/arrow_video.mp4' if SOURCE == 2 else 'assets/loop.mp4'
+    videoCapture = cv2.VideoCapture(videoSourcePath)
 else:
     videoCapture = cv2.VideoCapture(0)
     videoCapture.set(cv2.CAP_PROP_FRAME_WIDTH, 360)
@@ -307,16 +308,16 @@ while True:
         ret, img = videoCapture.read()
 
     if img is None:
-        if SOURCE == 2:
+        if SOURCE == 2 or SOURCE == 3:
             # Loop video
-            videoCapture = cv2.VideoCapture('assets/arrow_video.mp4')
+            videoCapture = cv2.VideoCapture(videoSourcePath)
             ret, img = videoCapture.read()
         else:
             if not videoCapture.isOpened():
                 raise Exception('Couldn\'t establish video connection')
             raise Exception('No frame found')
 
-    if SOURCE == 2:
+    if SOURCE == 2 or SOURCE == 3:
         img = cv2.resize(img, (480, 270))
 
     arrows, contours = filterArrows(img)
