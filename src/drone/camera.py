@@ -5,26 +5,28 @@ from math import atan2, cos, sin, sqrt, pi, radians
 from centroidtracker import CentroidTracker
 
 
-SOURCE = 2 # 0 - Stream, 1 - Photo, 2 - Video, default - Webcam
+SOURCE = 0 # 0 - Stream, 1 - Photo, 2 - Video, default - Webcam
 
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
 
 LOOKOUT_AREA_HEIGHT = 75
 LOOKOUT_AREA_WIDTH = 9999
+ARROW_TARGET_THRESHOLD = 50
 
 
 class Arrow:
-    def __init__(self, ID, centroid):
-        self.ID = ID
+    def __init__(self, id, centroid, distanceFromCenter):
+        self.id = id
         self.centroid = centroid
+        self.distanceFromCenter = distanceFromCenter
         self.contour = None
 
     def __str__(self):
-        return '{}: ({}, {}) - {}'.format(self.ID, self.centroid[0], self.centroid[1], 'None' if self.contour is None else 'Contour')
+        return '{}: ({}, {}) - {}'.format(self.id, self.centroid[0], self.centroid[1], 'None' if self.contour is None else 'Contour')
 
     def __repr__(self):
-        return '{}: ({}, {}) - {}'.format(self.ID, self.centroid[0], self.centroid[1], 'None' if self.contour is None else 'Contour')
+        return '{}: ({}, {}) - {}'.format(self.id, self.centroid[0], self.centroid[1], 'None' if self.contour is None else 'Contour')
 
 
 def goodFeatures(img):
@@ -233,33 +235,50 @@ def tracker(arrowContours, img):
 		# Draw bounding boxes for each arrow
         cv2.rectangle(img, (startX, startY), (endX, endY), (0, 255, 0), 1)
 
-    # Track arrow contours and sort them by center proximity
+    # Track arrow contours
     center = [img.shape[1] / 2, img.shape[0] / 2]
     objects = centroidTracker.update(rects)
-    objects = sorted(objects.items(), key=lambda object: abs(center[0] - object[1][0]) + abs(center[1] - object[1][1]))
 
+    global trackedArrows
     arrows = []
-    for (objectID, centroid) in objects:
+    for (objectID, centroid) in objects.items():
         # Draw ID and centroid of arrows
         text = "ID {}".format(objectID)
         cv2.putText(img, text, (centroid[0] - 10, centroid[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
         cv2.circle(img, getTuplePoint(centroid), 3, (0, 255, 0), -1)
 
-        # Create arrow object and match it to its contour, if any
-        arrow = Arrow(objectID, centroid)
+        # Create arrow objects
+        distanceFromCenter = abs(center[0] - centroid[0]) + abs(center[1] - centroid[1])
+        arrow = Arrow(objectID, centroid, distanceFromCenter)
         arrows.append(arrow)
+        trackedArrows[arrow.id] = arrow
+
+        # Match it to its contour, if any
         for arrowContour in arrowContours:
             arrowCenterX, arrowCenterY = getCentroid(arrowContour)
             if centroid[0] == arrowCenterX and centroid[1] == arrowCenterY:
                 arrow.contour = arrowContour
 
-    # Draw centermost arrow, if any
-    if len(arrows) > 0 and arrows[0].contour is not None:
-        cv2.drawContours(img, [arrows[0].contour], -1, (255, 255, 0), 3)
+    # Sort arrows by center proximity
+    arrows = sorted(arrows, key=lambda arrow: arrow.distanceFromCenter)
+
+    global activeArrowID
+    if len(arrows) > 0:
+        # Draw centermost arrow, if any
+        if arrows[0].contour is not None:
+            cv2.drawContours(img, [arrows[0].contour], -1, (255, 255, 0), 3)
+
+        # Keep track of active arrow by center proximity
+        if activeArrowID == -1 or (activeArrowID != arrows[0].id and arrows[0].distanceFromCenter < ARROW_TARGET_THRESHOLD):
+            activeArrowID = arrows[0].id
+
+    cv2.circle(img, getTuplePoint(center), ARROW_TARGET_THRESHOLD, (255, 255, 255), 0)
+    if activeArrowID != -1:
+        cv2.circle(img, getTuplePoint(trackedArrows[activeArrowID].centroid), 6, (255, 255, 255), -1)
 
 
 if SOURCE == 0:
-    videoCapture = cv2.VideoCapture('http://192.168.0.118:8080/video')
+    videoCapture = cv2.VideoCapture('http://192.168.43.80:8080/video')
 elif SOURCE == 1:
     videoCapture = cv2.VideoCapture('assets/arrow_photo.jpg')
 elif SOURCE == 2:
@@ -272,6 +291,8 @@ else:
 arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
 
 centroidTracker = CentroidTracker()
+activeArrowID = -1
+trackedArrows = {}
 
 while True:
     if SOURCE == 1:
