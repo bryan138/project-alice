@@ -10,6 +10,9 @@ SOURCE = 2 # 0 - Stream, 1 - Photo, 2 - Video, default - Webcam
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
 
+LOOKOUT_AREA_HEIGHT = 75
+LOOKOUT_AREA_WIDTH = 9999
+
 
 def goodFeatures(img):
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
@@ -101,6 +104,7 @@ def pcaOrientation(arrows, img):
         center = (int(mean[0, 0]), int(mean[0, 1]))
         majorAxis = (center[0] + 0.02 * eigenVectors[0, 0] * eigenValues[0, 0], center[1] + 0.02 * eigenVectors[0, 1] * eigenValues[0, 0])
         minorAxis = (center[0] - 0.02 * eigenVectors[1, 0] * eigenValues[1, 0], center[1] - 0.02 * eigenVectors[1, 1] * eigenValues[1, 0])
+        angle = atan2(eigenVectors[0, 1], eigenVectors[0, 0])
 
         # Count points in each side of the minor axis
         pointCount = [0, 0]
@@ -116,14 +120,30 @@ def pcaOrientation(arrows, img):
         arrowOrientation = -1 if pointCount[0] > pointCount[1] else 1
         if np.sign(arrowOrientation) != np.sign(getPointSide(majorAxis, center, minorAxis)):
             majorAxis = rotatePoint(majorAxis, center, pi)
+            angle += pi
 
         # Draw the principal components
         cv2.circle(img, center, 3, (255, 0, 255), 1)
         drawAxis(img, center, majorAxis, (0, 255, 255), 1)
         drawAxis(img, center, minorAxis, (255, 255, 0), 2)
 
-        # angle = atan2(eigenVectors[0, 1], eigenVectors[0, 0])
-        # return angle
+        # Define lookout area for next target
+        pointA = np.array(center)
+        pointA[0] = pointA[0] + cos(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
+        pointA[1] = pointA[1] + sin(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
+        pointB = np.array(center)
+        pointB[0] = pointB[0] - cos(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
+        pointB[1] = pointB[1] - sin(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
+        pointC = np.array(pointA)
+        pointC[0] = pointC[0] + cos(angle) * LOOKOUT_AREA_WIDTH
+        pointC[1] = pointC[1] + sin(angle) * LOOKOUT_AREA_WIDTH
+        pointD = np.array(pointB)
+        pointD[0] = pointD[0] + cos(angle) * LOOKOUT_AREA_WIDTH
+        pointD[1] = pointD[1] + sin(angle) * LOOKOUT_AREA_WIDTH
+
+        # Draw lookout area
+        lookoutArea = np.array([pointA, pointB, pointD, pointC], np.int32)
+        cv2.polylines(img, [lookoutArea], True, (0, 255, 255))
 
 def drawAxis(img, p, q, colour, scale):
     p = list(p)
@@ -265,5 +285,6 @@ while True:
     # tracker(arrows, img)
 
     cv2.imshow('frame', img)
+    cv2.moveWindow('frame', 20, 40)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
