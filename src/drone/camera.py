@@ -114,7 +114,7 @@ def pcaOrientation(arrows, img):
         # Perform PCA analysis
         mean = np.empty((0))
         mean, eigenVectors, eigenValues = cv2.PCACompute2(dataPoints, mean)
-        center = (int(mean[0, 0]), int(mean[0, 1]))
+        center = getTuplePoint(mean[0, :])
         majorAxis = (center[0] + 0.02 * eigenVectors[0, 0] * eigenValues[0, 0], center[1] + 0.02 * eigenVectors[0, 1] * eigenValues[0, 0])
         minorAxis = (center[0] - 0.02 * eigenVectors[1, 0] * eigenValues[1, 0], center[1] - 0.02 * eigenVectors[1, 1] * eigenValues[1, 0])
         angle = atan2(eigenVectors[0, 1], eigenVectors[0, 0])
@@ -168,16 +168,16 @@ def drawAxis(img, p, q, colour, scale):
     # Draw arrow axis
     q[0] = p[0] - scale * hypotenuse * cos(angle)
     q[1] = p[1] - scale * hypotenuse * sin(angle)
-    cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv2.LINE_AA)
+    cv2.line(img, getTuplePoint(p), getTuplePoint(q), colour, 1, cv2.LINE_AA)
 
     # Draw arrow head hooks
     p[0] = q[0] + 9 * cos(angle + pi / 4)
     p[1] = q[1] + 9 * sin(angle + pi / 4)
-    cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv2.LINE_AA)
+    cv2.line(img, getTuplePoint(p), getTuplePoint(q), colour, 1, cv2.LINE_AA)
 
     p[0] = q[0] + 9 * cos(angle - pi / 4)
     p[1] = q[1] + 9 * sin(angle - pi / 4)
-    cv2.line(img, (int(p[0]), int(p[1])), (int(q[0]), int(q[1])), colour, 1, cv2.LINE_AA)
+    cv2.line(img, getTuplePoint(p), getTuplePoint(q), colour, 1, cv2.LINE_AA)
 
 def randomColor():
     return (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
@@ -204,8 +204,8 @@ def filterArrows(img):
     return arrows, otherContours
 
 def putText(text, contour, img):
-    (x, y), radius = cv2.minEnclosingCircle(contour)
-    cv2.putText(img, text, (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+    center, radius = cv2.minEnclosingCircle(contour)
+    cv2.putText(img, text, getTuplePoint(center), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
 def getBoundingBox(contour):
     startX, startY, width, height = cv2.boundingRect(contour)
@@ -219,6 +219,9 @@ def getCentroid(contour):
     centerY = int((startY + endY) / 2.0)
     return (centerX, centerY)
 
+def getTuplePoint(point):
+    return (int(point[0]), int(point[1]))
+
 def tracker(arrowContours, img):
     rects = []
 
@@ -231,7 +234,7 @@ def tracker(arrowContours, img):
         cv2.rectangle(img, (startX, startY), (endX, endY), (0, 255, 0), 1)
 
     # Track arrow contours and sort them by center proximity
-    center = (img.shape[1] / 2, img.shape[0] / 2)
+    center = [img.shape[1] / 2, img.shape[0] / 2]
     objects = centroidTracker.update(rects)
     objects = sorted(objects.items(), key=lambda object: abs(center[0] - object[1][0]) + abs(center[1] - object[1][1]))
 
@@ -240,7 +243,7 @@ def tracker(arrowContours, img):
         # Draw ID and centroid of arrows
         text = "ID {}".format(objectID)
         cv2.putText(img, text, (centroid[0] - 10, centroid[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        cv2.circle(img, (centroid[0], centroid[1]), 3, (0, 255, 0), -1)
+        cv2.circle(img, getTuplePoint(centroid), 3, (0, 255, 0), -1)
 
         # Create arrow object and match it to its contour, if any
         arrow = Arrow(objectID, centroid)
