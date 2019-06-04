@@ -5,7 +5,7 @@ from math import atan2, cos, sin, sqrt, pi, radians
 from centroidtracker import CentroidTracker
 
 
-SOURCE = 0 # 0 - Stream, 1 - Photo, 2 - Video, default - Webcam
+SOURCE = 2 # 0 - Stream, 1 - Photo, 2 - Video, default - Webcam
 
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
@@ -104,61 +104,62 @@ def rotatePoint(point, reference, angle):
     rotatedPoint[1] = (point[0] - reference[0]) * sin(angle) + (point[1] - reference[1]) * cos(angle) + reference[1]
     return rotatedPoint
 
-def pcaOrientation(arrows, img):
-    for arrow in arrows:
-        # Construct a buffer used by the PCA analysis
-        size = len(arrow)
-        dataPoints = np.empty((size, 2), dtype=np.float64)
-        for i in range(dataPoints.shape[0]):
-            dataPoints[i, 0] = arrow[i, 0, 0]
-            dataPoints[i, 1] = arrow[i, 0, 1]
+def pcaOrientation(arrow, img):
+    # Construct a buffer used by the PCA analysis
+    size = len(arrow)
+    dataPoints = np.empty((size, 2), dtype=np.float64)
+    for i in range(dataPoints.shape[0]):
+        dataPoints[i, 0] = arrow[i, 0, 0]
+        dataPoints[i, 1] = arrow[i, 0, 1]
 
-        # Perform PCA analysis
-        mean = np.empty((0))
-        mean, eigenVectors, eigenValues = cv2.PCACompute2(dataPoints, mean)
-        center = getTuplePoint(mean[0, :])
-        majorAxis = (center[0] + 0.02 * eigenVectors[0, 0] * eigenValues[0, 0], center[1] + 0.02 * eigenVectors[0, 1] * eigenValues[0, 0])
-        minorAxis = (center[0] - 0.02 * eigenVectors[1, 0] * eigenValues[1, 0], center[1] - 0.02 * eigenVectors[1, 1] * eigenValues[1, 0])
-        angle = atan2(eigenVectors[0, 1], eigenVectors[0, 0])
+    # Perform PCA analysis
+    mean = np.empty((0))
+    mean, eigenVectors, eigenValues = cv2.PCACompute2(dataPoints, mean)
+    center = getTuplePoint(mean[0, :])
+    majorAxis = (center[0] + 0.02 * eigenVectors[0, 0] * eigenValues[0, 0], center[1] + 0.02 * eigenVectors[0, 1] * eigenValues[0, 0])
+    minorAxis = (center[0] - 0.02 * eigenVectors[1, 0] * eigenValues[1, 0], center[1] - 0.02 * eigenVectors[1, 1] * eigenValues[1, 0])
+    angle = atan2(eigenVectors[0, 1], eigenVectors[0, 0])
 
-        # Count points in each side of the minor axis
-        pointCount = [0, 0]
-        for component in arrow:
-            point = (component[0, 0], component[0, 1])
-            side = getPointSide(point, center, minorAxis)
-            if side < 0:
-                pointCount[0] += 1
-            else:
-                pointCount[1] += 1
+    # Count points in each side of the minor axis
+    pointCount = [0, 0]
+    for component in arrow:
+        point = (component[0, 0], component[0, 1])
+        side = getPointSide(point, center, minorAxis)
+        if side < 0:
+            pointCount[0] += 1
+        else:
+            pointCount[1] += 1
 
-        # Correct orientation of major axis, if necessary
-        arrowOrientation = -1 if pointCount[0] > pointCount[1] else 1
-        if np.sign(arrowOrientation) != np.sign(getPointSide(majorAxis, center, minorAxis)):
-            majorAxis = rotatePoint(majorAxis, center, pi)
-            angle += pi
+    # Correct orientation of major axis, if necessary
+    arrowOrientation = -1 if pointCount[0] > pointCount[1] else 1
+    if np.sign(arrowOrientation) != np.sign(getPointSide(majorAxis, center, minorAxis)):
+        majorAxis = rotatePoint(majorAxis, center, pi)
+        angle += pi
 
-        # Draw the principal components
-        cv2.circle(img, center, 3, (255, 0, 255), 1)
-        drawAxis(img, center, majorAxis, (0, 255, 255), 1)
-        drawAxis(img, center, minorAxis, (255, 255, 0), 2)
+    # Draw the principal components
+    cv2.circle(img, center, 3, (255, 0, 255), 1)
+    drawAxis(img, center, majorAxis, (0, 255, 255), 1)
+    drawAxis(img, center, minorAxis, (255, 255, 0), 2)
 
-        # Define lookout area for next target
-        pointA = np.array(center)
-        pointA[0] = pointA[0] + cos(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
-        pointA[1] = pointA[1] + sin(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
-        pointB = np.array(center)
-        pointB[0] = pointB[0] - cos(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
-        pointB[1] = pointB[1] - sin(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
-        pointC = np.array(pointA)
-        pointC[0] = pointC[0] + cos(angle) * LOOKOUT_AREA_WIDTH
-        pointC[1] = pointC[1] + sin(angle) * LOOKOUT_AREA_WIDTH
-        pointD = np.array(pointB)
-        pointD[0] = pointD[0] + cos(angle) * LOOKOUT_AREA_WIDTH
-        pointD[1] = pointD[1] + sin(angle) * LOOKOUT_AREA_WIDTH
+    # Define lookout area for next target
+    pointA = np.array(center)
+    pointA[0] = pointA[0] + cos(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
+    pointA[1] = pointA[1] + sin(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
+    pointB = np.array(center)
+    pointB[0] = pointB[0] - cos(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
+    pointB[1] = pointB[1] - sin(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
+    pointC = np.array(pointA)
+    pointC[0] = pointC[0] + cos(angle) * LOOKOUT_AREA_WIDTH
+    pointC[1] = pointC[1] + sin(angle) * LOOKOUT_AREA_WIDTH
+    pointD = np.array(pointB)
+    pointD[0] = pointD[0] + cos(angle) * LOOKOUT_AREA_WIDTH
+    pointD[1] = pointD[1] + sin(angle) * LOOKOUT_AREA_WIDTH
 
-        # Draw lookout area
-        lookoutArea = np.array([pointA, pointB, pointD, pointC], np.int32)
-        cv2.polylines(img, [lookoutArea], True, (0, 255, 255))
+    # Draw lookout area
+    lookoutArea = np.array([pointA, pointB, pointD, pointC], np.int32)
+    cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
+
+    return (angle, center)
 
 def drawAxis(img, p, q, colour, scale):
     p = list(p)
@@ -274,7 +275,11 @@ def tracker(arrowContours, img):
 
     cv2.circle(img, getTuplePoint(center), ARROW_TARGET_THRESHOLD, (255, 255, 255), 0)
     if activeArrowID != -1:
-        cv2.circle(img, getTuplePoint(trackedArrows[activeArrowID].centroid), 6, (255, 255, 255), -1)
+        activeArrow = trackedArrows[activeArrowID]
+        cv2.circle(img, getTuplePoint(activeArrow.centroid), 6, (255, 255, 255), -1)
+
+        if activeArrow.contour is not None:
+            pcaOrientation(activeArrow.contour, img)
 
 
 if SOURCE == 0:
