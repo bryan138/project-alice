@@ -3,6 +3,8 @@
 import argparse
 import queue
 import sys
+import os
+import pathlib as path
 import numpy as np
 import sounddevice as sd
 import matplotlib.pyplot as plt
@@ -10,6 +12,7 @@ import scipy.fftpack
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 from matplotlib.animation import FuncAnimation
+import datetime
 
 def int_or_str(text):
     try:
@@ -44,6 +47,13 @@ parser.add_argument(
 parser.add_argument(
     'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
     help='input channels to plot (default: the first)')
+parser.add_argument(
+    '-spk','--speaker', type=str, help='Who is recording?')
+parser.add_argument(
+    '-wd','--word',type=str, help = 'Word that will be recorded')
+parser.add_argument(
+    '-sf','--savefile', action='store_true', help = 'Save .wav samplings to folder')
+
 args = parser.parse_args()
 if any(c < 1 for c in args.channels):
     parser.error('argument CHANNEL: must be >= 1')
@@ -54,8 +64,10 @@ RECORDING_TIME = 0.5
 LOW_PASS_THRESHOLD = 0.075
 DUDES = ['jackson', 'nicolas', 'theo', 'yweweler']
 DUDES = ['jackson']
-SPEAKER = 'fake_jackson'
-WORD = '1'
+
+SPEAKER = args.speaker if args.speaker else 'speaker'
+WORD = args.word if args.word else 'word'
+FOLDER_NAME = 'recordings/' + datetime.datetime.now().strftime("%m_%d_%Y__%H_%M_%S")
 
 FRAME_OVERLAP = 0.25
 
@@ -119,7 +131,7 @@ def audio_callback(indata, frames, time, status):
             # Buffer is complete, process audio samples
             process_sample_bufffer(samples)
 
-            if False:
+            if args.savefile:
                 # Save recorded samples to wav file
                 global recording_iteration
                 save_wav_file(samples, WORD, SPEAKER, recording_iteration)
@@ -238,8 +250,12 @@ def get_accuracy(number, master_fingerprints):
     return matches[number]
 
 def save_wav_file(samples, word, speaker, iteration):
-    file_Name = word + '_' + speaker + '_' + str(iteration) + '.wav'
-    wavfile.write(file_Name, RECORDING_SAMPLING_RATE, samples)
+    if not os.path.exists(FOLDER_NAME):
+        os.makedirs(FOLDER_NAME)
+
+    filename = word + '_' + speaker + '_' + str(iteration) + '.wav'
+    filepath = os.path.join(FOLDER_NAME, filename)
+    wavfile.write(filepath, RECORDING_SAMPLING_RATE, samples)
 
 if args.list_devices:
     print(sd.query_devices())
