@@ -10,8 +10,8 @@ SOURCE = 3 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, default - Webcam
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
 
-LOOKOUT_AREA_HEIGHT = 75
-LOOKOUT_AREA_WIDTH = 9999
+LOOKOUT_AREA_HEIGHT = 50
+LOOKOUT_AREA_WIDTH = 500
 ARROW_TARGET_THRESHOLD = 50
 
 
@@ -142,7 +142,9 @@ def pcaOrientation(arrow, img):
     drawAxis(img, center, majorAxis, (0, 255, 255), 1)
     drawAxis(img, center, minorAxis, (255, 255, 0), 2)
 
-    # Define lookout area for next target
+    return (angle, center)
+
+def getLookoutArea(angle, center):
     pointA = np.array(center)
     pointA[0] = pointA[0] + cos(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
     pointA[1] = pointA[1] + sin(angle - pi / 2) * LOOKOUT_AREA_HEIGHT
@@ -156,11 +158,7 @@ def pcaOrientation(arrow, img):
     pointD[0] = pointD[0] + cos(angle) * LOOKOUT_AREA_WIDTH
     pointD[1] = pointD[1] + sin(angle) * LOOKOUT_AREA_WIDTH
 
-    # Draw lookout area
-    lookoutArea = np.array([pointA, pointB, pointD, pointC], np.int32)
-    cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
-
-    return (angle, center)
+    return np.array([pointA, pointB, pointD, pointC], np.int32)
 
 def drawAxis(img, p, q, colour, scale):
     p = list(p)
@@ -247,7 +245,7 @@ def tracker(arrowContours, img):
         # Draw ID and centroid of arrows
         text = "ID {}".format(objectID)
         cv2.putText(img, text, (centroid[0] - 10, centroid[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
-        cv2.circle(img, getTuplePoint(centroid), 3, (0, 255, 0), -1)
+        cv2.circle(img, getTuplePoint(centroid), 2, (255, 255, 255), -1)
 
         # Create arrow objects
         distanceFromCenter = abs(center[0] - centroid[0]) + abs(center[1] - centroid[1])
@@ -274,17 +272,22 @@ def tracker(arrowContours, img):
         if activeArrowID == -1 or (activeArrowID != arrows[0].id and arrows[0].distanceFromCenter < ARROW_TARGET_THRESHOLD):
             activeArrowID = arrows[0].id
 
+    # Draw center target area
     cv2.circle(img, getTuplePoint(center), ARROW_TARGET_THRESHOLD, (255, 255, 255), 0)
+
     if activeArrowID != -1:
         activeArrow = trackedArrows[activeArrowID]
         cv2.circle(img, getTuplePoint(activeArrow.centroid), 6, (255, 255, 255), -1)
 
         if activeArrow.contour is not None:
-            pcaOrientation(activeArrow.contour, img)
+            # Perform PCA analysis and draw lookout area
+            angle, pcaCenter = pcaOrientation(activeArrow.contour, img)
+            lookoutArea = getLookoutArea(angle, pcaCenter)
+            cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
 
 
 if SOURCE == 0:
-    videoCapture = cv2.VideoCapture('http://192.168.43.80:8080/video')
+    videoCapture = cv2.VideoCapture('http://192.168.43.32:8080/video')
 elif SOURCE == 1:
     videoCapture = cv2.VideoCapture('assets/arrow_photo.jpg')
 elif SOURCE == 2 or SOURCE == 3:
