@@ -14,6 +14,19 @@ LOOKOUT_AREA_HEIGHT = 75
 LOOKOUT_AREA_WIDTH = 9999
 
 
+class Arrow:
+    def __init__(self, ID, centroid):
+        self.ID = ID
+        self.centroid = centroid
+        self.contour = None
+
+    def __str__(self):
+        return '{}: ({}, {}) - {}'.format(self.ID, self.centroid[0], self.centroid[1], 'None' if self.contour is None else 'Contour')
+
+    def __repr__(self):
+        return '{}: ({}, {}) - {}'.format(self.ID, self.centroid[0], self.centroid[1], 'None' if self.contour is None else 'Contour')
+
+
 def goodFeatures(img):
     gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
 
@@ -194,47 +207,53 @@ def putText(text, contour, img):
     (x, y), radius = cv2.minEnclosingCircle(contour)
     cv2.putText(img, text, (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-def tracker(arrows, img):
+def getBoundingBox(contour):
+    startX, startY, width, height = cv2.boundingRect(contour)
+    endX = startX + width
+    endY = startY + height
+    return (startX, startY, endX, endY)
+
+def getCentroid(contour):
+    (startX, startY, endX, endY) = getBoundingBox(contour)
+    centerX = int((startX + endX) / 2.0)
+    centerY = int((startY + endY) / 2.0)
+    return (centerX, centerY)
+
+def tracker(arrowContours, img):
     rects = []
 
-    for arrow in arrows:
+    for arrowContour in arrowContours:
 		# Compute the bounding boxes for each arrow
-        startX, startY, width, height = cv2.boundingRect(arrow)
-        endX = startX + width
-        endY = startY + height
+        (startX, startY, endX, endY) = getBoundingBox(arrowContour)
         rects.append((startX, startY, endX, endY))
 
 		# Draw bounding boxes for each arrow
-        cv2.rectangle(img, (startX, startY), (endX, endY), (0, 255, 0), 2)
+        cv2.rectangle(img, (startX, startY), (endX, endY), (0, 255, 0), 1)
 
+    # Track arrow contours and sort them by center proximity
     center = (img.shape[1] / 2, img.shape[0] / 2)
-    centermostCentroid = -1
-    centermostDistance = float('inf')
-
     objects = centroidTracker.update(rects)
-    for (objectID, centroid) in objects.items():
+    objects = sorted(objects.items(), key=lambda object: abs(center[0] - object[1][0]) + abs(center[1] - object[1][1]))
+
+    arrows = []
+    for (objectID, centroid) in objects:
         # Draw ID and centroid of arrows
         text = "ID {}".format(objectID)
-        cv2.putText(img, text, (centroid[0] - 10, centroid[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-        cv2.circle(img, (centroid[0], centroid[1]), 4, (0, 255, 0), -1)
+        cv2.putText(img, text, (centroid[0] - 10, centroid[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 1)
+        cv2.circle(img, (centroid[0], centroid[1]), 3, (0, 255, 0), -1)
 
-        distanceFromCenter = abs(center[0] - centroid[0]) + abs(center[1] - centroid[1])
-        if distanceFromCenter < centermostDistance:
-            centermostDistance = distanceFromCenter
-            centermostCentroid = centroid
+        # Create arrow object and match it to its contour, if any
+        arrow = Arrow(objectID, centroid)
+        arrows.append(arrow)
+        for arrowContour in arrowContours:
+            arrowCenterX, arrowCenterY = getCentroid(arrowContour)
+            if centroid[0] == arrowCenterX and centroid[1] == arrowCenterY:
+                arrow.contour = arrowContour
 
-    if centermostCentroid is not -1:
-        # Look for contour with the centermost centroid
-        for arrow in arrows:
-            startX, startY, width, height = cv2.boundingRect(arrow)
-            endX = startX + width
-            endY = startY + height
+    # Draw centermost arrow, if any
+    if len(arrows) > 0 and arrows[0].contour is not None:
+        cv2.drawContours(img, [arrows[0].contour], -1, (255, 255, 0), 3)
 
-            arrowCenterX = int((startX + endX) / 2.0)
-            arrowCenterY = int((startY + endY) / 2.0)
-
-            if centermostCentroid[0] == arrowCenterX and centermostCentroid[1] == arrowCenterY:
-                cv2.drawContours(img, [arrow], -1, (255, 255, 0), 3)
 
 if SOURCE == 0:
     videoCapture = cv2.VideoCapture('http://192.168.0.118:8080/video')
@@ -280,9 +299,9 @@ while True:
     # houghLines(img)
     # drawContours(img)
     # contourOrientation(arrows, img)
-    pcaOrientation(arrows, img)
+    # pcaOrientation(arrows, img)
     # filterArrows(img)
-    # tracker(arrows, img)
+    tracker(arrows, img)
 
     cv2.imshow('frame', img)
     cv2.moveWindow('frame', 20, 40)
