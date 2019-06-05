@@ -12,7 +12,7 @@ CONTOUR_AREA_FILTER = (800, 15000)
 
 LOOKOUT_AREA_HEIGHT = 50
 LOOKOUT_AREA_WIDTH = 500
-ARROW_TARGET_THRESHOLD = 50
+TARGET_RADIUS = 50
 
 
 class Arrow:
@@ -277,12 +277,12 @@ def tracker(arrowContours, img):
         if arrows[0].contour is not None:
             cv2.drawContours(img, [arrows[0].contour], -1, (255, 255, 0), 3)
 
-        # Keep track of active arrow by center proximity
-        if activeArrowID == -1 and lookoutArea is None: # or (activeArrowID != arrows[0].id and arrows[0].distanceFromCenter < ARROW_TARGET_THRESHOLD):
+        # Mark first arrow as active if tracking hasn't started
+        if activeArrowID == -1 and lookoutArea is None:
             activeArrowID = arrows[0].id
 
     # Draw center target area
-    cv2.circle(img, getTuplePoint(center), ARROW_TARGET_THRESHOLD, (255, 255, 255), 0)
+    cv2.circle(img, getTuplePoint(center), TARGET_RADIUS, (255, 255, 255), 0)
 
     if activeArrowID != -1:
         activeArrow = trackedArrows[activeArrowID]
@@ -303,7 +303,11 @@ def tracker(arrowContours, img):
                 if inside >= 0:
                     # Arrow is inside the lookout area, mark it as active
                     cv2.circle(img, getTuplePoint(arrow.centroid), 5, (255, 255, 0), -1)
-                    activeArrowID = arrow.id
+
+                    # Mark as active if arrow is inside both lookout area and target radius
+                    if arrow.distanceFromCenter < TARGET_RADIUS:
+                        activeArrowID = arrow.id
+                        
                 else:
                     cv2.circle(img, getTuplePoint(arrow.centroid), 4, (0, 255, 0), -1)
 
