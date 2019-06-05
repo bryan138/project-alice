@@ -239,7 +239,9 @@ def tracker(arrowContours, img):
     center = [img.shape[1] / 2, img.shape[0] / 2]
     objects = centroidTracker.update(rects)
 
-    global trackedArrows
+    global activeArrowID
+    lostActiveArrow = True
+    trackedArrows = {}
     arrows = []
     for (objectID, centroid) in objects.items():
         # Draw ID and centroid of arrows
@@ -253,16 +255,21 @@ def tracker(arrowContours, img):
         arrows.append(arrow)
         trackedArrows[arrow.id] = arrow
 
+        if objectID == activeArrowID:
+            lostActiveArrow = False
+
         # Match it to its contour, if any
         for arrowContour in arrowContours:
             arrowCenterX, arrowCenterY = getCentroid(arrowContour)
             if centroid[0] == arrowCenterX and centroid[1] == arrowCenterY:
                 arrow.contour = arrowContour
 
+    if lostActiveArrow:
+        activeArrowID = -1
+
     # Sort arrows by center proximity
     arrows = sorted(arrows, key=lambda arrow: arrow.distanceFromCenter)
 
-    global activeArrowID
     if len(arrows) > 0:
         # Draw centermost arrow, if any
         if arrows[0].contour is not None:
@@ -302,7 +309,6 @@ arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
 
 centroidTracker = CentroidTracker()
 activeArrowID = -1
-trackedArrows = {}
 
 while True:
     if SOURCE == 1:
