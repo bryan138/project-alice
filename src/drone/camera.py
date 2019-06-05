@@ -5,7 +5,7 @@ from math import atan2, cos, sin, sqrt, pi, radians
 from centroidtracker import CentroidTracker
 
 
-SOURCE = 3 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, default - Webcam
+SOURCE = 0 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, default - Webcam
 
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
@@ -276,12 +276,13 @@ def tracker(arrowContours, img):
             cv2.drawContours(img, [arrows[0].contour], -1, (255, 255, 0), 3)
 
         # Keep track of active arrow by center proximity
-        if activeArrowID == -1 or (activeArrowID != arrows[0].id and arrows[0].distanceFromCenter < ARROW_TARGET_THRESHOLD):
+        if activeArrowID == -1: # or (activeArrowID != arrows[0].id and arrows[0].distanceFromCenter < ARROW_TARGET_THRESHOLD):
             activeArrowID = arrows[0].id
 
     # Draw center target area
     cv2.circle(img, getTuplePoint(center), ARROW_TARGET_THRESHOLD, (255, 255, 255), 0)
 
+    global lookoutArea
     if activeArrowID != -1:
         activeArrow = trackedArrows[activeArrowID]
         cv2.circle(img, getTuplePoint(activeArrow.centroid), 6, (255, 255, 255), -1)
@@ -290,7 +291,9 @@ def tracker(arrowContours, img):
             # Perform PCA analysis and draw lookout area
             angle, pcaCenter = pcaOrientation(activeArrow.contour, img)
             lookoutArea = getLookoutArea(angle, pcaCenter)
-            cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
+
+    if lookoutArea is not None:
+        cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
 
 
 if SOURCE == 0:
@@ -309,6 +312,7 @@ arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
 
 centroidTracker = CentroidTracker()
 activeArrowID = -1
+lookoutArea = None
 
 while True:
     if SOURCE == 1:
@@ -345,5 +349,10 @@ while True:
 
     cv2.imshow('frame', img)
     cv2.moveWindow('frame', 20, 40)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
         break
+    elif key == ord('r'):
+        activeArrowID = -1
+        lookoutArea = None
