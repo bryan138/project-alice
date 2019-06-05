@@ -5,10 +5,11 @@ from math import atan2, cos, sin, sqrt, pi, radians
 from centroidtracker import CentroidTracker
 
 
-SOURCE = 0 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, default - Webcam
+SOURCE = 3 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, default - Webcam
 
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
+MAX_JUMP_DISTANCE = 35
 
 LOOKOUT_AREA_HEIGHT = 50
 LOOKOUT_AREA_WIDTH = 500
@@ -307,7 +308,7 @@ def tracker(arrowContours, img):
                     # Mark as active if arrow is inside both lookout area and target radius
                     if arrow.distanceFromCenter < TARGET_RADIUS:
                         activeArrowID = arrow.id
-                        
+
                 else:
                     cv2.circle(img, getTuplePoint(arrow.centroid), 4, (0, 255, 0), -1)
 
@@ -326,7 +327,7 @@ else:
 
 arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
 
-centroidTracker = CentroidTracker()
+centroidTracker = CentroidTracker(maxJumpDistance=MAX_JUMP_DISTANCE)
 activeArrowID = -1
 lookoutArea = None
 
