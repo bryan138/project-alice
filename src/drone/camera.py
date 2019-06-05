@@ -240,6 +240,8 @@ def tracker(arrowContours, img):
     objects = centroidTracker.update(rects)
 
     global activeArrowID
+    global lookoutArea
+
     lostActiveArrow = True
     trackedArrows = {}
     arrows = []
@@ -276,13 +278,12 @@ def tracker(arrowContours, img):
             cv2.drawContours(img, [arrows[0].contour], -1, (255, 255, 0), 3)
 
         # Keep track of active arrow by center proximity
-        if activeArrowID == -1: # or (activeArrowID != arrows[0].id and arrows[0].distanceFromCenter < ARROW_TARGET_THRESHOLD):
+        if activeArrowID == -1 and lookoutArea is None: # or (activeArrowID != arrows[0].id and arrows[0].distanceFromCenter < ARROW_TARGET_THRESHOLD):
             activeArrowID = arrows[0].id
 
     # Draw center target area
     cv2.circle(img, getTuplePoint(center), ARROW_TARGET_THRESHOLD, (255, 255, 255), 0)
 
-    global lookoutArea
     if activeArrowID != -1:
         activeArrow = trackedArrows[activeArrowID]
         cv2.circle(img, getTuplePoint(activeArrow.centroid), 6, (255, 255, 255), -1)
@@ -294,6 +295,17 @@ def tracker(arrowContours, img):
 
     if lookoutArea is not None:
         cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
+
+        for arrow in arrows:
+            if arrow.id != activeArrowID:
+                inside = cv2.pointPolygonTest(lookoutArea, getTuplePoint(arrow.centroid), False)
+
+                if inside >= 0:
+                    # Arrow is inside the lookout area, mark it as active
+                    cv2.circle(img, getTuplePoint(arrow.centroid), 5, (255, 255, 0), -1)
+                    activeArrowID = arrow.id
+                else:
+                    cv2.circle(img, getTuplePoint(arrow.centroid), 4, (0, 255, 0), -1)
 
 
 if SOURCE == 0:
