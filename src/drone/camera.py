@@ -417,9 +417,19 @@ while True:
         flightActivated = not flightActivated
 
     elif key == 32: # Backspace
-        if SOURCE == 4:
-            tello.takeoff()
+        tello.takeoff()
 
     elif key == 32: # Space
-        if SOURCE == 4:
-            tello.land()
+        tello.land()
+
+    elif key == ord('w'):
+        tello.move_forward(20)
+
+    elif key == ord('a'):
+        tello.move_left(20)
+
+    elif key == ord('s'):
+        tello.move_back(20)
+
+    elif key == ord('d'):
+        tello.move_right(20)
