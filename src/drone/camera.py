@@ -299,7 +299,8 @@ def tracker(arrowContours, img):
     if lookoutArea is not None:
         cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
 
-        # if flightActivated:
+        if flightActivated:
+            cv2.circle(img, (25, 25), 15, (0, 255, 0), -1)
             # TODO: Flight in arrows direction
 
         for arrow in arrows:
