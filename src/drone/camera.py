@@ -8,7 +8,8 @@ from djitellopy import Tello
 
 SOURCE = 5 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
 
-ARROW_MATCH_THRESHOLD = 0.1
+ARROW_MATCH_THRESHOLD = 0.15
+CONTOUR_AREA_FILTER = (2000, 7500)
 CONTOUR_AREA_FILTER = (800, 15000)
 MAX_JUMP_DISTANCE = 35
 
@@ -69,8 +70,8 @@ def houghLines(img):
 def getContours(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    # ret, thresh = cv2.threshold(blur, 128, 255, cv2.THRESH_BINARY_INV)
-    thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    ret, thresh = cv2.threshold(blur, 90, 255, cv2.THRESH_BINARY_INV)
+    # thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     return contours
 
