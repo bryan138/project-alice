@@ -3,9 +3,10 @@ import cv2
 import random
 from math import atan2, cos, sin, sqrt, pi, radians
 from centroidtracker import CentroidTracker
+from djitellopy import Tello
 
 
-SOURCE = 3 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, default - Webcam
+SOURCE = 4 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, default - Webcam
 
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
@@ -314,12 +315,26 @@ def tracker(arrowContours, img):
 
 
 if SOURCE == 0:
-    videoCapture = cv2.VideoCapture('http://192.168.43.32:8080/video')
+    videoCapture = cv2.VideoCapture('http://192.168.43.86:8080/video')
 elif SOURCE == 1:
     videoCapture = cv2.VideoCapture('assets/arrow_photo.jpg')
 elif SOURCE == 2 or SOURCE == 3:
     videoSourcePath = 'assets/arrow_video.mp4' if SOURCE == 2 else 'assets/loop.mp4'
     videoCapture = cv2.VideoCapture(videoSourcePath)
+elif SOURCE == 4:
+    drone = Tello()
+
+    if not drone.connect():
+        raise Exception('Could not establish connection to drone')
+
+    if not drone.streamoff():
+        raise Exception('Could not stop video stream')
+
+    if not drone.streamon():
+        raise Exception('Could not start video stream')
+
+    frameRead = drone.get_frame_read()
+
 else:
     videoCapture = cv2.VideoCapture(0)
     videoCapture.set(cv2.CAP_PROP_FRAME_WIDTH, 360)
@@ -335,6 +350,12 @@ while True:
     if SOURCE == 1:
         img = cv2.imread('assets/arrow_photo.jpg')
         img = cv2.resize(img, (562, 421))
+    elif SOURCE == 4:
+        if frameRead.stopped:
+            frameRead.stop()
+            raise Exception('Frame read stopped')
+
+        img  = frameRead.frame
     else:
         ret, img = videoCapture.read()
 
