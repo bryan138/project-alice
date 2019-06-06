@@ -6,7 +6,7 @@ from centroidtracker import CentroidTracker
 from djitellopy import Tello
 
 
-SOURCE = 5 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
+SOURCE = 3 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
 
 ARROW_MATCH_THRESHOLD = 0.15
 CONTOUR_AREA_FILTER = (2000, 7500)
@@ -299,6 +299,9 @@ def tracker(arrowContours, img):
     if lookoutArea is not None:
         cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
 
+        # if flightActivated:
+            # TODO: Flight in arrows direction
+
         for arrow in arrows:
             if arrow.id != activeArrowID:
                 inside = cv2.pointPolygonTest(lookoutArea, getTuplePoint(arrow.centroid), False)
@@ -342,6 +345,8 @@ elif SOURCE == 4:
     if not drone.streamon():
         raise Exception('Could not start video stream')
 
+    drone.takeoff()
+
     frameRead = drone.get_frame_read()
 
 else:
@@ -354,6 +359,8 @@ arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
 centroidTracker = CentroidTracker(maxJumpDistance=MAX_JUMP_DISTANCE)
 activeArrowID = -1
 lookoutArea = None
+
+flightActivated = SOURCE == 4
 
 while True:
     if SOURCE == 1:
@@ -400,6 +407,18 @@ while True:
     key = cv2.waitKey(1) & 0xFF
     if key == ord('q'):
         break
+
     elif key == ord('r'):
         activeArrowID = -1
         lookoutArea = None
+
+    elif key == 13: # Enter
+        flightActivated = not flightActivated
+
+    elif key == 32: # Backspace
+        if SOURCE == 4:
+            tello.takeoff()
+
+    elif key == 32: # Space
+        if SOURCE == 4:
+            tello.land()
