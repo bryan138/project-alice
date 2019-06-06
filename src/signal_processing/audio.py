@@ -3,6 +3,8 @@
 import argparse
 import queue
 import sys
+import os
+import pathlib as path
 import numpy as np
 import sounddevice as sd
 import matplotlib.pyplot as plt
@@ -10,6 +12,7 @@ import scipy.fftpack
 from scipy.io import wavfile
 from scipy.signal import find_peaks
 from matplotlib.animation import FuncAnimation
+import datetime
 
 def int_or_str(text):
     try:
@@ -44,20 +47,36 @@ parser.add_argument(
 parser.add_argument(
     'channels', type=int, default=[1], nargs='*', metavar='CHANNEL',
     help='input channels to plot (default: the first)')
+parser.add_argument(
+    '-spk','--speaker', type=str, help='Who is recording?')
+parser.add_argument(
+    '-wd','--word',type=str, help = 'Word that will be recorded')
+parser.add_argument(
+    '-sf','--savefile', action='store_true', help = 'Save .wav samplings to folder')
+
 args = parser.parse_args()
 if any(c < 1 for c in args.channels):
     parser.error('argument CHANNEL: must be >= 1')
 mapping = [c - 1 for c in args.channels]
 
 
-LOW_PASS_THRESHOLD = 0.05
+RECORDING_TIME = 0.5
+LOW_PASS_THRESHOLD = 0.075
 DUDES = ['jackson', 'nicolas', 'theo', 'yweweler']
 DUDES = ['jackson']
 
+SPEAKER = args.speaker if args.speaker else 'speaker'
+WORD = args.word if args.word else 'word'
+FOLDER_NAME = 'recordings/' + datetime.datetime.now().strftime("%m_%d_%Y__%H_%M_%S")
+
+FRAME_OVERLAP = 0.25
+
+RECORDING_SAMPLING_RATE = 48000
 SAMPLING_RATE = 8000
-BUFFER_SIZE = 512
-BUFFER_DISPLAY_SIZE = BUFFER_SIZE
-FFT_CAP = 25
+BUFFER_SIZE = 256
+BUFFER_DISPLAY_SIZE = int(RECORDING_TIME * RECORDING_SAMPLING_RATE)
+FFT_CAP = 20
+
 
 if args.hifi:
     SAMPLING_RATE = 48000
@@ -77,48 +96,49 @@ samples = np.array([])
 paused = False
 
 def process_sample_bufffer(samples):
-    global fft
-
-    # Plot buffer
-    lines[2].set_ydata(samples[:BUFFER_DISPLAY_SIZE])
-
-    # Compute FFT
-    fft = scipy.fftpack.fft(samples)
-    trimmedFFT = np.abs(fft[:BUFFER_SIZE // 2]);
-
-    # Plot FFT
-    fftData = np.interp(trimmedFFT, [0.0, FFT_CAP], [0, 1])
-    lines[1].set_ydata(fftData)
-
     # Identify data
-    identified = False
-    result = '--'
-    confidence = float('Inf')
+    identified = True
+    test = generate_fingerprint(samples[0::(RECORDING_SAMPLING_RATE // SAMPLING_RATE)])
+    result, error = identify_sample(master_fingerprints, test)
+
+    # Plot fingerprints
+    lines[1].set_ydata(test)
+    lines[2].set_ydata(master_fingerprints[result])
+
+    # Plot raw test audio wave
+    lines[3].set_ydata(samples[:BUFFER_DISPLAY_SIZE])
 
     resultText.set_text(result)
-    confidenceText.set_text('{0:.2f}'.format(confidence) if identified else '')
+    confidenceText.set_text('{0:.2f}'.format(error) if identified else '')
 
 def audio_callback(indata, frames, time, status):
     # Fancy indexing with mapping creates a (necessary!) copy:
     q.put(indata[::args.downsample, mapping])
 
-    global recordingWord 
+    global recordingWord
     dataPoints = indata[::args.downsample]
     for value in dataPoints:
         if not recordingWord and abs(value) >= LOW_PASS_THRESHOLD:
             recordingWord = True
 
     global samples
-    if recordingWord and not paused and samples.shape[0] < BUFFER_SIZE:
+    recordingBankSize = int(RECORDING_TIME * RECORDING_SAMPLING_RATE)
+    if recordingWord and not paused and samples.shape[0] < recordingBankSize:
         # Grow sample buffer to desired size
-        n = min(dataPoints.shape[0], BUFFER_SIZE - samples.shape[0])
+        n = min(dataPoints.shape[0], recordingBankSize - samples.shape[0])
         samples = np.append(samples, dataPoints[:n])
-
-        if (samples.shape[0] == BUFFER_SIZE):
-            # Buffer is complete, go to processing and clean up for next buffer
+        if (samples.shape[0] == recordingBankSize):
+            # Buffer is complete, process audio samples
             process_sample_bufffer(samples)
-            samples = np.array([])
+
+            if args.savefile:
+                # Save recorded samples to wav file
+                global recording_iteration
+                save_wav_file(samples, WORD, SPEAKER, recording_iteration)
+                recording_iteration += 1
+
             recordingWord = False
+            samples = np.array([])
 
 def update_plot(frame):
     global plotdata
@@ -132,7 +152,7 @@ def update_plot(frame):
         plotdata[-shift:, :] = data
 
     for column, line in enumerate(lines):
-        if column < len(lines) - 2:
+        if column < len(lines) - 3:
             line.set_ydata(plotdata[:, column])
     return lines
 
@@ -145,9 +165,10 @@ def key_press(event):
 
 def segment_data(data, size):
     segments = []
-    for i in range(0, data.shape[0], size):
-        if i + size < data.shape[0]:
-            segments.append(data[i:i + size])
+    for i in range(0, data.shape[0], size - int(size * FRAME_OVERLAP)):
+        segment = data[i:min(data.shape[0], i + size)]
+        segment = np.append(segment, np.zeros(size -  segment.shape[0]))
+        segments.append(segment)
     return segments
 
 def get_fingerprint(path, plot = False):
@@ -156,6 +177,13 @@ def get_fingerprint(path, plot = False):
     # Get audio data and prepare for processing
     samplingFrequency, audioData = wavfile.read(path)
     audioData = np.array(audioData)
+
+    if len(audioData.shape) > 1 and audioData.shape[1] > 1:
+        audioData = audioData[:, 1]
+
+    return generate_fingerprint(audioData, plot)
+
+def generate_fingerprint(audioData, plot = False):
     audioData = np.interp(audioData, [np.amin(audioData), np.amax(audioData)] , [-1.0, 1.0])
 
     # Generate fingerprint by segmenting samples and averaging FFTs
@@ -188,7 +216,7 @@ def get_master_fingerprint(number, plot = False):
 
     return master_fingerprint
 
-def identify_sample(master_fingerprints, test):
+def identify_sample(master_fingerprints, test, plot = False):
     min_error = float('Inf')
     result = -1
     for index, master in enumerate(master_fingerprints):
@@ -200,20 +228,34 @@ def identify_sample(master_fingerprints, test):
             min_error = error
             result = index
 
-    return result
+    if plot:
+        plt.figure()
+        plt.plot(test, label='TEST')
+        plt.plot(master_fingerprints[result], label=result)
+        plt.legend(loc=2)
+        plt.show(block=False)
+
+    return result, error
 
 def get_accuracy(number, master_fingerprints):
     matches = np.zeros(10)
     for dude in DUDES:
         for i in range(1, 50):
             test = get_fingerprint('./recordings/%d_%s_%d.wav' % (number, dude, i))
-            result = identify_sample(master_fingerprints, test)
+            result, error = identify_sample(master_fingerprints, test)
             matches[result] = matches[result] + 1
 
     matches = matches / (len(DUDES) * 50)
     print(number, matches[number], matches)
     return matches[number]
 
+def save_wav_file(samples, word, speaker, iteration):
+    if not os.path.exists(FOLDER_NAME):
+        os.makedirs(FOLDER_NAME)
+
+    filename = word + '_' + speaker + '_' + str(iteration) + '.wav'
+    filepath = os.path.join(FOLDER_NAME, filename)
+    wavfile.write(filepath, RECORDING_SAMPLING_RATE, samples)
 
 if args.list_devices:
     print(sd.query_devices())
@@ -222,9 +264,10 @@ if args.list_devices:
 if args.samplerate is None:
     # device_info = sd.query_devices(args.device, 'input')
     # args.samplerate = device_info['default_samplerate']
-    args.samplerate = SAMPLING_RATE
+    args.samplerate = RECORDING_SAMPLING_RATE
 
 recordingWord = False
+recording_iteration = 0
 
 plt.rcParams['toolbar'] = 'None'
 length = int(args.window * args.samplerate / (1000 * args.downsample))
@@ -239,8 +282,8 @@ bufferAxes = figure.add_subplot(grid[1, :3])
 textAxes = figure.add_subplot(grid[1, 3])
 
 # FFT plot
-fftLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)))
-fftAxes.axis((0, args.samplerate / (2.0 * args.downsample), 0, 1))
+fftLines = fftAxes.plot(xf, np.zeros((BUFFER_SIZE // 2)), xf, np.zeros((BUFFER_SIZE // 2)))
+fftAxes.axis((0, args.samplerate / (2.0 * args.downsample), 0, FFT_CAP))
 fftAxes.set_xticks(np.linspace(0, (args.samplerate / args.downsample) // 2, 6))
 fftAxes.tick_params(left=False, labelleft=False, labelsize='x-small')
 
@@ -271,7 +314,7 @@ textAxes.axis('off')
 figure.tight_layout(pad=0.5)
 figure.canvas.mpl_connect('key_press_event', key_press)
 
-lines = [samplingLines[0], fftLines[0], bufferLines[0]]
+lines = [samplingLines[0], fftLines[0], fftLines[1], bufferLines[0]]
 
 # Generate master fingerprints for all numbers
 master_fingerprints = []
