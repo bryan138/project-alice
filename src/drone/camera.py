@@ -6,7 +6,7 @@ from centroidtracker import CentroidTracker
 from djitellopy import Tello
 
 
-SOURCE = 4 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, default - Webcam
+SOURCE = 5 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
 
 ARROW_MATCH_THRESHOLD = 0.1
 CONTOUR_AREA_FILTER = (800, 15000)
@@ -314,12 +314,20 @@ def tracker(arrowContours, img):
                     cv2.circle(img, getTuplePoint(arrow.centroid), 4, (0, 255, 0), -1)
 
 
+sourceIsVideo = False
 if SOURCE == 0:
     videoCapture = cv2.VideoCapture('http://192.168.43.86:8080/video')
 elif SOURCE == 1:
     videoCapture = cv2.VideoCapture('assets/arrow_photo.jpg')
-elif SOURCE == 2 or SOURCE == 3:
-    videoSourcePath = 'assets/arrow_video.mp4' if SOURCE == 2 else 'assets/loop.mp4'
+elif SOURCE == 2 or SOURCE == 3 or SOURCE == 5:
+    sourceIsVideo = True
+    if SOURCE == 2:
+        videoSourcePath = 'assets/arrow_video.mp4'
+    elif SOURCE == 3:
+        videoSourcePath = 'assets/loop.mp4'
+    elif SOURCE == 5:
+        videoSourcePath = 'assets/drone2.mp4'
+
     videoCapture = cv2.VideoCapture(videoSourcePath)
 elif SOURCE == 4:
     drone = Tello()
@@ -360,7 +368,7 @@ while True:
         ret, img = videoCapture.read()
 
     if img is None:
-        if SOURCE == 2 or SOURCE == 3:
+        if sourceIsVideo:
             # Loop video
             videoCapture = cv2.VideoCapture(videoSourcePath)
             ret, img = videoCapture.read()
@@ -369,8 +377,8 @@ while True:
                 raise Exception('Couldn\'t establish video connection')
             raise Exception('No frame found')
 
-    if SOURCE == 2 or SOURCE == 3:
-        img = cv2.resize(img, (480, 270))
+    if sourceIsVideo:
+        img = cv2.resize(img, (int(img.shape[1] / 2.5), int(img.shape[0] // 2.5)))
 
     arrows, contours = filterArrows(img)
     cv2.drawContours(img, arrows, -1, (0, 0, 255), 2)
