@@ -404,7 +404,7 @@ lastCommand = -1
 sourceIsVideo = False
 arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
 
-centroidTracker = CentroidTracker(maxJumpDistance=MAX_JUMP_DISTANCE)
+centroidTracker = CentroidTracker()
 activeArrowID = -1
 lookoutArea = None
 
