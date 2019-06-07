@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 import random
-from math import atan2, cos, sin, sqrt, pi, radians
+from math import atan2, cos, sin, sqrt, pi, radians, degrees
 from centroidtracker import CentroidTracker
 from djitellopy import Tello
 
@@ -19,6 +19,9 @@ TARGET_RADIUS = 150
 
 MOVE_STEP = 20
 PROXIMITY_RANGE = [7000, 20000]
+
+HYPOTENUSE = 30
+GO_XYZ_SPEED = 20
 
 
 class Arrow:
@@ -237,6 +240,15 @@ def moveDrone(direction, value=MOVE_STEP):
     if flightActivated and drone is not None:
         print('>>>>>>>>>>MOVE:', direction)
         drone.move(direction, value)
+
+def goToAngle(angle):
+    if flightActivated and drone is not None:
+        radians = angle * pi / 180
+        x = int(HYPOTENUSE * cos(radians))
+        y = int(HYPOTENUSE * sin(radians))
+
+        print('>>>>>>>>>>GO TO:', angle, x, y)
+        drone.go_xyz_speed(0, x, y, GO_XYZ_SPEED)
 
 def centerArrow(arrow, point):
     deltaX = arrow.centroid[0] - point[0]
