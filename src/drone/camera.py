@@ -327,26 +327,6 @@ def tracker(arrowContours, img):
     # Sort arrows by center proximity
     arrows = sorted(arrows, key=lambda arrow: arrow.distanceFromCenter)
 
-    centermostArrow = None
-    for arrow in arrows:
-        if arrow.contour is not None:
-            centermostArrow = arrow
-            break
-
-    if centermostArrow is not None:
-        cv2.drawContours(img, [centermostArrow.contour], -1, (244, 66, 170), -1)
-        centerArrow(centermostArrow, center)
-        adjustProximity(centermostArrow)
-
-    if len(arrows) > 0:
-        # Draw centermost arrow, if any
-        if arrows[0].contour is not None:
-            cv2.drawContours(img, [arrows[0].contour], -1, (255, 255, 0), 3)
-
-        # Mark first arrow as active if tracking hasn't started
-        if activeArrowID == -1 and lookoutArea is None:
-            activeArrowID = arrows[0].id
-
     # Draw center target area
     cv2.circle(img, getTuplePoint(center), TARGET_RADIUS, (255, 255, 255), 0)
 
@@ -357,10 +337,31 @@ def tracker(arrowContours, img):
         if activeArrow.contour is not None:
             # Perform PCA analysis and draw lookout area
             angle, pcaCenter = pcaOrientation(activeArrow.contour, img)
+            transformedAngle = degrees(2 * pi - angle) % 360
             lookoutArea = getLookoutArea(angle, pcaCenter)
 
     if flightActivated:
         cv2.circle(img, (25, 25), 15, (0, 255, 0), -1)
+
+    centermostArrow = None
+    for arrow in arrows:
+        if arrow.contour is not None:
+            centermostArrow = arrow
+            break
+
+    if centermostArrow is not None:
+        cv2.drawContours(img, [centermostArrow.contour], -1, (244, 66, 170), -1)
+        near = adjustProximity(centermostArrow)
+        centered = centerArrow(centermostArrow, center)
+
+    if len(arrows) > 0:
+        # Draw centermost arrow, if any
+        if arrows[0].contour is not None:
+            cv2.drawContours(img, [arrows[0].contour], -1, (255, 255, 0), 3)
+
+        # Mark first arrow as active if tracking hasn't started
+        if activeArrowID == -1 and lookoutArea is None:
+            activeArrowID = arrows[0].id
 
     if lookoutArea is not None:
         cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
@@ -485,7 +486,7 @@ while True:
         flightActivated = not flightActivated
 
     elif key == 32: # Space
-        flightActivated = False 
+        flightActivated = False
         drone.land()
 
     elif key == ord('t'):
