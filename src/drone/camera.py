@@ -6,7 +6,8 @@ from centroidtracker import CentroidTracker
 from djitellopy import Tello
 
 
-SOURCE = 3 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
+SOURCE = 4 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
+DRONE_IS_ACTIVE = SOURCE == 4
 
 ARROW_MATCH_THRESHOLD = 0.15
 CONTOUR_AREA_FILTER = (2000, 7500)
@@ -70,8 +71,10 @@ def houghLines(img):
 def getContours(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    ret, thresh = cv2.threshold(blur, 90, 255, cv2.THRESH_BINARY_INV)
-    # thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    if DRONE_IS_ACTIVE:
+        ret, thresh = cv2.threshold(blur, 90, 255, cv2.THRESH_BINARY_INV)
+    else:
+        thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     return contours
 
@@ -296,12 +299,13 @@ def tracker(arrowContours, img):
             angle, pcaCenter = pcaOrientation(activeArrow.contour, img)
             lookoutArea = getLookoutArea(angle, pcaCenter)
 
+    if flightActivated:
+        cv2.circle(img, (25, 25), 15, (0, 255, 0), -1)
+
     if lookoutArea is not None:
         cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
 
-        if flightActivated:
-            cv2.circle(img, (25, 25), 15, (0, 255, 0), -1)
-            # TODO: Flight in arrows direction
+        # TODO: Flight in arrows direction
 
         for arrow in arrows:
             if arrow.id != activeArrowID:
@@ -318,10 +322,18 @@ def tracker(arrowContours, img):
                 else:
                     cv2.circle(img, getTuplePoint(arrow.centroid), 4, (0, 255, 0), -1)
 
+drone = None
+flightActivated = False
 
 sourceIsVideo = False
+arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
+
+centroidTracker = CentroidTracker(maxJumpDistance=MAX_JUMP_DISTANCE)
+activeArrowID = -1
+lookoutArea = None
+
 if SOURCE == 0:
-    videoCapture = cv2.VideoCapture('http://192.168.43.86:8080/video')
+    videoCapture = cv2.VideoCapture('http://192.168.43.85:8080/video')
 elif SOURCE == 1:
     videoCapture = cv2.VideoCapture('assets/arrow_photo.jpg')
 elif SOURCE == 2 or SOURCE == 3 or SOURCE == 5:
@@ -354,14 +366,6 @@ else:
     videoCapture = cv2.VideoCapture(0)
     videoCapture.set(cv2.CAP_PROP_FRAME_WIDTH, 360)
     videoCapture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-
-arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
-
-centroidTracker = CentroidTracker(maxJumpDistance=MAX_JUMP_DISTANCE)
-activeArrowID = -1
-lookoutArea = None
-
-flightActivated = SOURCE == 4
 
 while True:
     if SOURCE == 1:
@@ -417,19 +421,31 @@ while True:
         flightActivated = not flightActivated
 
     elif key == 32: # Backspace
-        tello.takeoff()
+        drone.takeoff()
 
     elif key == 32: # Space
-        tello.land()
+        drone.land()
 
     elif key == ord('w'):
-        tello.move_forward(20)
+        drone.move_forward(20)
 
     elif key == ord('a'):
-        tello.move_left(20)
+        drone.move_left(20)
 
     elif key == ord('s'):
-        tello.move_back(20)
+        drone.move_back(20)
 
     elif key == ord('d'):
-        tello.move_right(20)
+        drone.move_right(20)
+
+    elif key == ord('q'):
+        drone.move_up(20)
+
+    elif key == ord('q'):
+        drone.move_down(20)
+
+    elif key == ord('j'):
+        drone.rotate_clockwise(20)
+
+    elif key == ord('l'):
+        drone.rotate_counter_clockwise(20)
