@@ -264,15 +264,18 @@ def goToAngle(angle):
         drone.go_xyz_speed(0, x, y, GO_XYZ_SPEED)
 
 def centerArrow(arrow, point):
-    deltaX = arrow.centroid[0] - point[0]
-    deltaY = point[1] - arrow.centroid[1]
+    return centerPoint(arrow.centroid, point)
 
-    if abs(deltaX) > TARGET_RADIUS / 2:
+def centerPoint(target, point):
+    deltaX = target[0] - point[0]
+    deltaY = point[1] - target[1]
+
+    if abs(deltaX) > TARGET_RADIUS:
         direction = 'right' if deltaX > 0 else 'left'
         moveDrone(direction)
         return False
 
-    if abs(deltaY) > TARGET_RADIUS / 2:
+    if abs(deltaY) > TARGET_RADIUS:
         direction = 'up' if deltaY > 0 else 'down'
         moveDrone(direction)
         return False
