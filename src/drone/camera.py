@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import random
+import time
 from math import atan2, cos, sin, sqrt, pi, radians, degrees
 from centroidtracker import CentroidTracker
 from djitellopy import Tello
@@ -23,6 +24,8 @@ PROXIMITY_RANGE = [7000, 20000]
 
 HYPOTENUSE = 30
 GO_XYZ_SPEED = 20
+
+COMMAND_INTERVAL = 0.75
 
 
 class Arrow:
@@ -239,17 +242,25 @@ def getTuplePoint(point):
     return (int(point[0]), int(point[1]))
 
 def moveDrone(direction, value=MOVE_STEP):
-    if flightActivated and drone is not None:
-        print('>>>>>>>>>>MOVE:', direction)
+    global lastCommand
+    currentTime = time.time()
+
+    if currentTime - lastCommand > COMMAND_INTERVAL and flightActivated and drone is not None:
+        lastCommand = currentTime
+        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>MOVE:', direction)
         drone.move(direction, value)
 
 def goToAngle(angle):
-    if flightActivated and drone is not None:
+    global lastCommand
+    currentTime = time.time()
+
+    if currentTime - lastCommand > COMMAND_INTERVAL and flightActivated and drone is not None:
         radians = angle * pi / 180
         x = int(HYPOTENUSE * cos(radians))
         y = int(HYPOTENUSE * sin(radians))
 
-        print('>>>>>>>>>>GO TO:', angle, x, y)
+        lastCommand = currentTime
+        print('>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>GO TO:', angle, x, y)
         drone.go_xyz_speed(0, x, y, GO_XYZ_SPEED)
 
 def centerArrow(arrow, point):
@@ -388,6 +399,7 @@ def tracker(arrowContours, img):
 
 drone = None
 flightActivated = False
+lastCommand = -1
 
 sourceIsVideo = False
 arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
