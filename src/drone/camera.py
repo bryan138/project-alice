@@ -18,6 +18,8 @@ LOOKOUT_AREA_HEIGHT = 50
 LOOKOUT_AREA_WIDTH = 500
 TARGET_RADIUS = 50
 
+MOVE_STEP = 20
+
 
 class Arrow:
     def __init__(self, id, centroid, distanceFromCenter):
@@ -230,6 +232,10 @@ def getCentroid(contour):
 def getTuplePoint(point):
     return (int(point[0]), int(point[1]))
 
+def moveDrone(direction, value=MOVE_STEP):
+    if flightActivated and drone is not None:
+        drone.move(direction, value)
+
 def tracker(arrowContours, img):
     rects = []
 
@@ -293,6 +299,20 @@ def tracker(arrowContours, img):
     if activeArrowID != -1:
         activeArrow = trackedArrows[activeArrowID]
         cv2.circle(img, getTuplePoint(activeArrow.centroid), 6, (255, 255, 255), -1)
+
+        deltaX = activeArrow.centroid[0] - center[0]
+        deltaY = center[1] - activeArrow.centroid[1]
+
+        if abs(deltaX) > TARGET_RADIUS / 2:
+            if deltaX > 0:
+                moveDrone('right')
+            else:
+                moveDrone('left')
+        elif abs(deltaY) > TARGET_RADIUS / 2:
+            if deltaY > 0:
+                moveDrone('up')
+            else:
+                moveDrone('down')
 
         if activeArrow.contour is not None:
             # Perform PCA analysis and draw lookout area
@@ -420,7 +440,7 @@ while True:
     elif key == 13: # Enter
         flightActivated = not flightActivated
 
-    elif key == 32: # Backspace
+    elif key == ord('t'):
         drone.takeoff()
 
     elif key == 32: # Space
@@ -441,7 +461,7 @@ while True:
     elif key == ord('q'):
         drone.move_up(20)
 
-    elif key == ord('q'):
+    elif key == ord('z'):
         drone.move_down(20)
 
     elif key == ord('j'):
