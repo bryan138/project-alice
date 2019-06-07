@@ -256,7 +256,7 @@ def goToAngle(angle):
 
     if currentTime - lastCommand > COMMAND_INTERVAL and flightActivated and drone is not None:
         radians = angle * pi / 180
-        x = int(HYPOTENUSE * cos(radians))
+        x = -int(HYPOTENUSE * cos(radians))
         y = int(HYPOTENUSE * sin(radians))
 
         lastCommand = currentTime
