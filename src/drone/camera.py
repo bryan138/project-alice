@@ -384,13 +384,14 @@ elif SOURCE == 4:
     if not drone.connect():
         raise Exception('Could not establish connection to drone')
 
+    if not drone.set_speed(20):
+        raise Exception('Not set speed to lowest possible')
+
     if not drone.streamoff():
         raise Exception('Could not stop video stream')
 
     if not drone.streamon():
         raise Exception('Could not start video stream')
-
-    drone.takeoff()
 
     frameRead = drone.get_frame_read()
 
