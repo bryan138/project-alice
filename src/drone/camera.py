@@ -6,7 +6,7 @@ from centroidtracker import CentroidTracker
 from djitellopy import Tello
 
 
-SOURCE = 5 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
+SOURCE = 4 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
 DRONE_IS_ACTIVE = SOURCE == 4
 
 ARROW_MATCH_THRESHOLD = 0.15
@@ -18,6 +18,7 @@ LOOKOUT_AREA_WIDTH = 500
 TARGET_RADIUS = 50
 
 MOVE_STEP = 20
+PROXIMITY_RANGE = [3500, 7500]
 
 
 class Arrow:
@@ -304,6 +305,12 @@ def tracker(arrowContours, img):
         if abs(deltaY) > TARGET_RADIUS / 2:
             direction = 'up' if deltaY > 0 else 'down'
             moveDrone(direction)
+
+        area = cv2.contourArea(centerArrow.contour)
+        if area < PROXIMITY_RANGE[0]:
+            moveDrone('forward')
+        elif area > PROXIMITY_RANGE[1]:
+            moveDrone('back')
 
     if len(arrows) > 0:
         # Draw centermost arrow, if any
