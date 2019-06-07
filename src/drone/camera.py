@@ -235,8 +235,37 @@ def getTuplePoint(point):
 
 def moveDrone(direction, value=MOVE_STEP):
     if flightActivated and drone is not None:
-        print('MOVE:', direction)
+        print('>>>>>>>>>>MOVE:', direction)
         drone.move(direction, value)
+
+def centerArrow(arrow, point):
+    deltaX = arrow.centroid[0] - point[0]
+    deltaY = point[1] - arrow.centroid[1]
+
+    if abs(deltaX) > TARGET_RADIUS / 2:
+        direction = 'right' if deltaX > 0 else 'left'
+        moveDrone(direction)
+        return False
+
+    if abs(deltaY) > TARGET_RADIUS / 2:
+        direction = 'up' if deltaY > 0 else 'down'
+        moveDrone(direction)
+        return False
+
+    print('---------------------------CENTERED')
+    return True
+
+def adjustProximity(arrow):
+    area = cv2.contourArea(arrow.contour)
+    if area < PROXIMITY_RANGE[0]:
+        moveDrone('forward')
+        return False
+    elif area > PROXIMITY_RANGE[1]:
+        moveDrone('back')
+        return False
+
+    print('---------------------------NEAR')
+    return True
 
 def tracker(arrowContours, img):
     rects = []
@@ -286,31 +315,16 @@ def tracker(arrowContours, img):
     # Sort arrows by center proximity
     arrows = sorted(arrows, key=lambda arrow: arrow.distanceFromCenter)
 
-    centerArrow = None
+    centermostArrow = None
     for arrow in arrows:
         if arrow.contour is not None:
-            centerArrow = arrow
+            centermostArrow = arrow
             break
 
-    if centerArrow is not None:
-        cv2.drawContours(img, [centerArrow.contour], -1, (244, 66, 170), -1)
-
-        deltaX = centerArrow.centroid[0] - center[0]
-        deltaY = center[1] - centerArrow.centroid[1]
-
-        if abs(deltaX) > TARGET_RADIUS / 2:
-            direction = 'right' if deltaX > 0 else 'left'
-            moveDrone(direction)
-
-        if abs(deltaY) > TARGET_RADIUS / 2:
-            direction = 'up' if deltaY > 0 else 'down'
-            moveDrone(direction)
-
-        area = cv2.contourArea(centerArrow.contour)
-        if area < PROXIMITY_RANGE[0]:
-            moveDrone('forward')
-        elif area > PROXIMITY_RANGE[1]:
-            moveDrone('back')
+    if centermostArrow is not None:
+        cv2.drawContours(img, [centermostArrow.contour], -1, (244, 66, 170), -1)
+        centerArrow(centermostArrow, center)
+        adjustProximity(centermostArrow)
 
     if len(arrows) > 0:
         # Draw centermost arrow, if any
