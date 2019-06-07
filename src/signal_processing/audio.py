@@ -52,6 +52,8 @@ parser.add_argument(
     '-wd','--word',type=str, help = 'Word that will be recorded')
 parser.add_argument(
     '-sf','--savefile', action='store_true', help = 'Save .wav samplings to folder')
+parser.add_argument(
+    '-pabs','--pabs', action='store_true', help = 'Super Duper P')
 
 args = parser.parse_args()
 if any(c < 1 for c in args.channels):
@@ -76,6 +78,11 @@ SAMPLING_RATE = 8000
 BUFFER_SIZE = 256
 FFT_CAP = 20
 
+
+if args.pabs:
+    RECORDING_TIME = 1.0
+    DUDES = ['pepe']
+    TRAINING_WORDS = ['si', 'el', 'no','perro']
 
 if args.hifi:
     SAMPLING_RATE = 48000
@@ -180,6 +187,9 @@ def get_fingerprint(path, plot = False):
 
         if len(audioData.shape) > 1 and audioData.shape[1] > 1:
             audioData = audioData[:, 1]
+
+        if args.pabs:
+            audioData = audioData[0::6]
 
         return generate_fingerprint(audioData, plot)
 
