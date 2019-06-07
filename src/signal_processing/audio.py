@@ -10,7 +10,6 @@ import sounddevice as sd
 import matplotlib.pyplot as plt
 import scipy.fftpack
 from scipy.io import wavfile
-from scipy.signal import find_peaks
 from matplotlib.animation import FuncAnimation
 import datetime
 
@@ -62,8 +61,9 @@ mapping = [c - 1 for c in args.channels]
 
 RECORDING_TIME = 0.5
 LOW_PASS_THRESHOLD = 0.075
-DUDES = ['jackson', 'nicolas', 'theo', 'yweweler']
+
 DUDES = ['jackson']
+TRAINING_WORDS = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9']
 
 SPEAKER = args.speaker if args.speaker else 'speaker'
 WORD = args.word if args.word else 'word'
@@ -74,7 +74,6 @@ FRAME_OVERLAP = 0.25
 RECORDING_SAMPLING_RATE = 48000
 SAMPLING_RATE = 8000
 BUFFER_SIZE = 256
-BUFFER_DISPLAY_SIZE = int(RECORDING_TIME * RECORDING_SAMPLING_RATE)
 FFT_CAP = 20
 
 
@@ -85,11 +84,11 @@ if args.hifi:
     FFT_CAP = 125
 
 if args.lofi:
-    SAMPLING_RATE = 44100
-    BUFFER_SIZE = 256
-    BUFFER_DISPLAY_SIZE = BUFFER_SIZE // 4
-    FFT_CAP = 75
-    args.downsample = 10
+    RECORDING_SAMPLING_RATE = 44100
+    FFT_CAP = 20
+
+BUFFER_DISPLAY_SIZE = int(RECORDING_TIME * RECORDING_SAMPLING_RATE)
+
 
 q = queue.Queue()
 samples = np.array([])
@@ -99,11 +98,11 @@ def process_sample_bufffer(samples):
     # Identify data
     identified = True
     test = generate_fingerprint(samples[0::(RECORDING_SAMPLING_RATE // SAMPLING_RATE)])
-    result, error = identify_sample(master_fingerprints, test)
+    result, index, error = identify_sample(master_fingerprints, test)
 
     # Plot fingerprints
     lines[1].set_ydata(test)
-    lines[2].set_ydata(master_fingerprints[result])
+    lines[2].set_ydata(master_fingerprints[index])
 
     # Plot raw test audio wave
     lines[3].set_ydata(samples[:BUFFER_DISPLAY_SIZE])
@@ -175,13 +174,17 @@ def get_fingerprint(path, plot = False):
     global lines
 
     # Get audio data and prepare for processing
-    samplingFrequency, audioData = wavfile.read(path)
-    audioData = np.array(audioData)
+    try:
+        samplingFrequency, audioData = wavfile.read(path)
+        audioData = np.array(audioData)
 
-    if len(audioData.shape) > 1 and audioData.shape[1] > 1:
-        audioData = audioData[:, 1]
+        if len(audioData.shape) > 1 and audioData.shape[1] > 1:
+            audioData = audioData[:, 1]
 
-    return generate_fingerprint(audioData, plot)
+        return generate_fingerprint(audioData, plot)
+
+    except:
+        return None
 
 def generate_fingerprint(audioData, plot = False):
     audioData = np.interp(audioData, [np.amin(audioData), np.amax(audioData)] , [-1.0, 1.0])
@@ -202,13 +205,19 @@ def generate_fingerprint(audioData, plot = False):
     fingerprint[0] = 0
     return fingerprint
 
-def get_master_fingerprint(number, plot = False):
+def get_master_fingerprint(word, plot = False):
+    wordCount = 0
     master_fingerprint = np.zeros(BUFFER_SIZE // 2)
     for dude in DUDES:
         for i in range(50):
-            fingerprint = get_fingerprint('./recordings/%d_%s_%d.wav' % (number, dude, i))
+            fingerprint = get_fingerprint('./recordings/%s_%s_%d.wav' % (word, dude, i))
+            if fingerprint is None:
+                continue
+
+            wordCount += 1
             master_fingerprint = master_fingerprint + fingerprint
-    master_fingerprint = master_fingerprint / (len(DUDES) * 50)
+
+    master_fingerprint = master_fingerprint / (len(DUDES) * wordCount)
 
     if plot:
         fftData = np.interp(master_fingerprint, [0.0, FFT_CAP], [0, 1])
@@ -235,19 +244,29 @@ def identify_sample(master_fingerprints, test, plot = False):
         plt.legend(loc=2)
         plt.show(block=False)
 
-    return result, error
+    return TRAINING_WORDS[result], index, error
 
-def get_accuracy(number, master_fingerprints):
-    matches = np.zeros(10)
+def get_accuracy(word, master_fingerprints):
+    matches = {}
+    for trainingWord in TRAINING_WORDS:
+        matches[trainingWord] = 0
+
+    wordCount = 0
     for dude in DUDES:
         for i in range(1, 50):
-            test = get_fingerprint('./recordings/%d_%s_%d.wav' % (number, dude, i))
-            result, error = identify_sample(master_fingerprints, test)
+            test = get_fingerprint('./recordings/%s_%s_%d.wav' % (word, dude, i))
+            if test is None:
+                continue
+
+            wordCount += 1
+            result, index, error = identify_sample(master_fingerprints, test)
             matches[result] = matches[result] + 1
 
-    matches = matches / (len(DUDES) * 50)
-    print(number, matches[number], matches)
-    return matches[number]
+    for match in matches:
+        matches[match] /= (len(DUDES) * wordCount)
+
+    print(word, wordCount, matches[word], matches)
+    return matches[word]
 
 def save_wav_file(samples, word, speaker, iteration):
     if not os.path.exists(FOLDER_NAME):
@@ -318,12 +337,12 @@ lines = [samplingLines[0], fftLines[0], fftLines[1], bufferLines[0]]
 
 # Generate master fingerprints for all numbers
 master_fingerprints = []
-for i in range(10):
-    master_fingerprints.append(get_master_fingerprint(i))
+for word in TRAINING_WORDS:
+    master_fingerprints.append(get_master_fingerprint(word))
 
 # Test accuracy
-for i in range(10):
-    get_accuracy(i, master_fingerprints)
+for word in TRAINING_WORDS:
+    get_accuracy(word, master_fingerprints)
 
 # Quick change short circuit
 if not True:
