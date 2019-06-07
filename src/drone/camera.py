@@ -234,6 +234,7 @@ def getTuplePoint(point):
 
 def moveDrone(direction, value=MOVE_STEP):
     if flightActivated and drone is not None:
+        print('MOVE:', direction)
         drone.move(direction, value)
 
 def tracker(arrowContours, img):
@@ -291,21 +292,18 @@ def tracker(arrowContours, img):
             break
 
     if centerArrow is not None:
-        cv2.drawContours(img, [centerArrow.contour], -1, (0, 165, 255), 5)
+        cv2.drawContours(img, [centerArrow.contour], -1, (244, 66, 170), -1)
 
         deltaX = centerArrow.centroid[0] - center[0]
         deltaY = center[1] - centerArrow.centroid[1]
 
         if abs(deltaX) > TARGET_RADIUS / 2:
-            if deltaX > 0:
-                moveDrone('right')
-            else:
-                moveDrone('left')
-        elif abs(deltaY) > TARGET_RADIUS / 2:
-            if deltaY > 0:
-                moveDrone('up')
-            else:
-                moveDrone('down')
+            direction = 'right' if deltaX > 0 else 'left'
+            moveDrone(direction)
+
+        if abs(deltaY) > TARGET_RADIUS / 2:
+            direction = 'up' if deltaY > 0 else 'down'
+            moveDrone(direction)
 
     if len(arrows) > 0:
         # Draw centermost arrow, if any
