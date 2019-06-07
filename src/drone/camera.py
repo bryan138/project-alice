@@ -6,13 +6,12 @@ from centroidtracker import CentroidTracker
 from djitellopy import Tello
 
 
-SOURCE = 4 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
+SOURCE = 5 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
 DRONE_IS_ACTIVE = SOURCE == 4
 
 ARROW_MATCH_THRESHOLD = 0.15
-CONTOUR_AREA_FILTER = (2000, 7500)
-CONTOUR_AREA_FILTER = (800, 15000)
-MAX_JUMP_DISTANCE = 50
+CONTOUR_AREA_FILTER = (300, 15000)
+MAX_JUMP_DISTANCE = 500
 
 LOOKOUT_AREA_HEIGHT = 50
 LOOKOUT_AREA_WIDTH = 500
@@ -215,6 +214,7 @@ def filterArrows(img):
 
 def putText(text, contour, img):
     center, radius = cv2.minEnclosingCircle(contour)
+    center = (center[0] + 75, center[1] - 75)
     cv2.putText(img, text, getTuplePoint(center), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
 def getBoundingBox(contour):
