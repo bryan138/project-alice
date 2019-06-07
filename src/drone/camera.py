@@ -6,8 +6,9 @@ from centroidtracker import CentroidTracker
 from djitellopy import Tello
 
 
-SOURCE = 4 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
+SOURCE = 0 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
 DRONE_IS_ACTIVE = SOURCE == 4
+IP_WEBCAM = 'http://192.168.0.110:8080/video'
 
 ARROW_MATCH_THRESHOLD = 0.15
 CONTOUR_AREA_FILTER = (3000, 30000)
@@ -394,7 +395,7 @@ activeArrowID = -1
 lookoutArea = None
 
 if SOURCE == 0:
-    videoCapture = cv2.VideoCapture('http://192.168.43.85:8080/video')
+    videoCapture = cv2.VideoCapture(IP_WEBCAM)
 elif SOURCE == 1:
     videoCapture = cv2.VideoCapture('assets/arrow_photo.jpg')
 elif SOURCE == 2 or SOURCE == 3 or SOURCE == 5:
