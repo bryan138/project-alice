@@ -212,6 +212,7 @@ def filterArrows(img):
             epsilon = 0.02 * cv2.arcLength(contour, True)
             arrow = cv2.approxPolyDP(contour, epsilon, True)
             arrows.append(arrow)
+            # putText('{0:.2f} {1:.2f}'.format(area, matches), arrow, img)
         else:
             otherContours.append(contour)
 
@@ -333,12 +334,13 @@ def tracker(arrowContours, img):
 
     if activeArrowID != -1:
         activeArrow = trackedArrows[activeArrowID]
-        cv2.circle(img, getTuplePoint(activeArrow.centroid), 6, (255, 255, 255), -1)
+        cv2.circle(img, getTuplePoint(activeArrow.centroid), 13, (255, 255, 255), -1)
 
         if activeArrow.contour is not None:
             # Perform PCA analysis and draw lookout area
             angle, pcaCenter = pcaOrientation(activeArrow.contour, img)
             transformedAngle = degrees(2 * pi - angle) % 360
+            # putText(str(transformedAngle), activeArrow.contour, img)
             lookoutArea = getLookoutArea(angle, pcaCenter)
 
     if flightActivated:
