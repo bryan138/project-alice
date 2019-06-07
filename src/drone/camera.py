@@ -12,7 +12,7 @@ DRONE_IS_ACTIVE = SOURCE == 4
 ARROW_MATCH_THRESHOLD = 0.15
 CONTOUR_AREA_FILTER = (2000, 7500)
 CONTOUR_AREA_FILTER = (800, 15000)
-MAX_JUMP_DISTANCE = 35
+MAX_JUMP_DISTANCE = 50
 
 LOOKOUT_AREA_HEIGHT = 50
 LOOKOUT_AREA_WIDTH = 500
@@ -284,6 +284,29 @@ def tracker(arrowContours, img):
     # Sort arrows by center proximity
     arrows = sorted(arrows, key=lambda arrow: arrow.distanceFromCenter)
 
+    centerArrow = None
+    for arrow in arrows:
+        if arrow.contour is not None:
+            centerArrow = arrow
+            break
+
+    if centerArrow is not None:
+        cv2.drawContours(img, [centerArrow.contour], -1, (0, 165, 255), 5)
+
+        deltaX = centerArrow.centroid[0] - center[0]
+        deltaY = center[1] - centerArrow.centroid[1]
+
+        if abs(deltaX) > TARGET_RADIUS / 2:
+            if deltaX > 0:
+                moveDrone('right')
+            else:
+                moveDrone('left')
+        elif abs(deltaY) > TARGET_RADIUS / 2:
+            if deltaY > 0:
+                moveDrone('up')
+            else:
+                moveDrone('down')
+
     if len(arrows) > 0:
         # Draw centermost arrow, if any
         if arrows[0].contour is not None:
@@ -299,20 +322,6 @@ def tracker(arrowContours, img):
     if activeArrowID != -1:
         activeArrow = trackedArrows[activeArrowID]
         cv2.circle(img, getTuplePoint(activeArrow.centroid), 6, (255, 255, 255), -1)
-
-        deltaX = activeArrow.centroid[0] - center[0]
-        deltaY = center[1] - activeArrow.centroid[1]
-
-        if abs(deltaX) > TARGET_RADIUS / 2:
-            if deltaX > 0:
-                moveDrone('right')
-            else:
-                moveDrone('left')
-        elif abs(deltaY) > TARGET_RADIUS / 2:
-            if deltaY > 0:
-                moveDrone('up')
-            else:
-                moveDrone('down')
 
         if activeArrow.contour is not None:
             # Perform PCA analysis and draw lookout area
