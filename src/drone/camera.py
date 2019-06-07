@@ -491,10 +491,10 @@ while True:
     elif key == ord('d'):
         drone.move_right(20)
 
-    elif key == ord('q'):
+    elif key == ord('e'):
         drone.move_up(20)
 
-    elif key == ord('z'):
+    elif key == ord('c'):
         drone.move_down(20)
 
     elif key == ord('j'):
