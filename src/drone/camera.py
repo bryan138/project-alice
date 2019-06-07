@@ -373,8 +373,11 @@ elif SOURCE == 2 or SOURCE == 3 or SOURCE == 5:
         videoSourcePath = 'assets/loop.mp4'
     elif SOURCE == 5:
         videoSourcePath = 'assets/drone2.mp4'
+        videoSourcePath = 'assets/proximity.mp4'
+        videoSourcePath = 'assets/marco_drone.mp4'
 
     videoCapture = cv2.VideoCapture(videoSourcePath)
+    # videoCapture.set(cv2.CAP_PROP_POS_MSEC, 75000)
 elif SOURCE == 4:
     drone = Tello()
 
