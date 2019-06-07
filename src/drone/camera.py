@@ -458,11 +458,12 @@ while True:
     elif key == 13: # Enter
         flightActivated = not flightActivated
 
+    elif key == 32: # Space
+        flightActivated = False 
+        drone.land()
+
     elif key == ord('t'):
         drone.takeoff()
-
-    elif key == 32: # Space
-        drone.land()
 
     elif key == ord('w'):
         drone.move_forward(20)
