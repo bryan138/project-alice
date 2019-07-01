@@ -7,21 +7,20 @@ from centroidtracker import CentroidTracker
 from djitellopy import Tello
 
 
-SOURCE = 0 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
+SOURCE = 4 # 0 - Stream, 1 - Photo, 2 - Video, 3 - Loop Video, 4 - Drone, 5 - Drone Video, default - Webcam
 DRONE_IS_ACTIVE = SOURCE == 4
 IP_WEBCAM = 'http://192.168.0.110:8080/video'
 
 ARROW_MATCH_THRESHOLD = 0.15
 CONTOUR_AREA_FILTER = (3000, 30000)
-MAX_JUMP_DISTANCE = 500
+MAX_JUMP_DISTANCE = 200
 
-LOOKOUT_AREA_HEIGHT = 50
-LOOKOUT_AREA_WIDTH = 1000
+LOOKOUT_AREA_HEIGHT = 350
+LOOKOUT_AREA_WIDTH = 1500
 TARGET_RADIUS = 150
 
 MOVE_STEP = 20
-PROXIMITY_RANGE = [7000, 20000]
-
+PROXIMITY_RANGE = [7500, 20000]
 HYPOTENUSE = 30
 GO_XYZ_SPEED = 20
 
@@ -82,6 +81,7 @@ def getContours(img):
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     if DRONE_IS_ACTIVE:
         ret, thresh = cv2.threshold(blur, 90, 255, cv2.THRESH_BINARY_INV)
+        thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     else:
         thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
     contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -215,7 +215,7 @@ def filterArrows(img):
             epsilon = 0.02 * cv2.arcLength(contour, True)
             arrow = cv2.approxPolyDP(contour, epsilon, True)
             arrows.append(arrow)
-            # putText('{0:.2f} {1:.2f}'.format(area, matches), arrow, img)
+            putText('{0:.2f} {1:.2f}'.format(area, matches), arrow, img)
         else:
             otherContours.append(contour)
 
@@ -224,7 +224,7 @@ def filterArrows(img):
 def putText(text, contour, img):
     center, radius = cv2.minEnclosingCircle(contour)
     center = (center[0] + 75, center[1] - 75)
-    cv2.putText(img, text, getTuplePoint(center), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+    cv2.putText(img, text, getTuplePoint(center), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 2)
 
 def getBoundingBox(contour):
     startX, startY, width, height = cv2.boundingRect(contour)
@@ -296,24 +296,44 @@ def adjustProximity(arrow):
     return True
 
 def tracker(arrowContours, img):
-    rects = []
 
+    global lastActiveCentroid
+    global activeArrowID
+    global nextArrowID
+    global lookoutArea
+    global flyingAngle
+
+    rects = []
+    activeArrowIsOut = True
     for arrowContour in arrowContours:
 		# Compute the bounding boxes for each arrow
         (startX, startY, endX, endY) = getBoundingBox(arrowContour)
         rects.append((startX, startY, endX, endY))
 
+        # Check if the active arrow is now out of frame
+        centroid = getCentroid(arrowContour)
+        if activeArrowID != -1 and lastActiveCentroid is not None:
+            distanceFromActive = abs(lastActiveCentroid[0] - centroid[0]) + abs(lastActiveCentroid[1] - centroid[1])
+            if distanceFromActive < MAX_JUMP_DISTANCE:
+                activeArrowIsOut = False
+
 		# Draw bounding boxes for each arrow
         cv2.rectangle(img, (startX, startY), (endX, endY), (0, 255, 0), 1)
+
+    # Keep active arrow centroid in the centroid tracker to avoid re matching of id
+    if activeArrowID != -1 and lastActiveCentroid is not None and activeArrowIsOut:
+        startX = lastActiveCentroid[0] - 25
+        startY = lastActiveCentroid[1] - 25
+        endX = lastActiveCentroid[0] + 25
+        endY = lastActiveCentroid[1] + 25
+        rects.append((startX, startY, endX, endY))
 
     # Track arrow contours
     center = [img.shape[1] / 2, img.shape[0] / 2]
     objects = centroidTracker.update(rects)
 
-    global activeArrowID
-    global lookoutArea
-
     lostActiveArrow = True
+    lostNextArrow = True
     trackedArrows = {}
     arrows = []
     for (objectID, centroid) in objects.items():
@@ -331,6 +351,9 @@ def tracker(arrowContours, img):
         if objectID == activeArrowID:
             lostActiveArrow = False
 
+        if objectID == nextArrowID:
+            lostNextArrow = False
+
         # Match it to its contour, if any
         for arrowContour in arrowContours:
             arrowCenterX, arrowCenterY = getCentroid(arrowContour)
@@ -340,81 +363,103 @@ def tracker(arrowContours, img):
     if lostActiveArrow:
         activeArrowID = -1
 
+    if lostNextArrow:
+        nextArrowID = -1
+
     # Sort arrows by center proximity
     arrows = sorted(arrows, key=lambda arrow: arrow.distanceFromCenter)
+
+    if len(arrows) > 0:
+        # Mark first arrow as active if tracking hasn't started
+        if activeArrowID == -1 and nextArrowID == -1 and lookoutArea is None:
+            activeArrowID = arrows[0].id
+            lastActiveCentroid = arrows[0].centroid
 
     # Draw center target area
     cv2.circle(img, getTuplePoint(center), TARGET_RADIUS, (255, 255, 255), 0)
 
     if activeArrowID != -1:
         activeArrow = trackedArrows[activeArrowID]
+        lastActiveCentroid = activeArrow.centroid
         cv2.circle(img, getTuplePoint(activeArrow.centroid), 13, (255, 255, 255), -1)
 
         if activeArrow.contour is not None:
             # Perform PCA analysis and draw lookout area
             angle, pcaCenter = pcaOrientation(activeArrow.contour, img)
-            transformedAngle = degrees(2 * pi - angle) % 360
-            # putText(str(transformedAngle), activeArrow.contour, img)
             lookoutArea = getLookoutArea(angle, pcaCenter)
 
+            # Transform angle to a go-to friendly format
+            transformedAngle = degrees(2 * pi - angle) % 360
+            flyingAngle = transformedAngle
+            if False: putText(str(transformedAngle), activeArrow.contour, img)
+
+            # Make sure drone is near enough to wall
+            adjustProximity(activeArrow)
+
+    # Show HUD for auto pilot mode
     if flightActivated:
+        cv2.putText(img, 'AUTO PILOT', (50, 29), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2)
         cv2.circle(img, (25, 25), 15, (0, 255, 0), -1)
 
-    centermostArrow = None
-    for arrow in arrows:
-        if arrow.contour is not None:
-            centermostArrow = arrow
-            break
+    if nextArrowID != -1:
+        # Try to center drone against next arrow
+        nextArrow = trackedArrows[nextArrowID]
+        cv2.circle(img, getTuplePoint(nextArrow.centroid), 10, (255, 0, 255), -1)
+        centered = centerArrow(nextArrow, center)
 
-    if centermostArrow is not None:
-        cv2.drawContours(img, [centermostArrow.contour], -1, (244, 66, 170), -1)
-        near = adjustProximity(centermostArrow)
-        centered = centerArrow(centermostArrow, center)
+        if centered:
+            if activeArrowID != -1:
+                # We're about to mark a new active arrow, deregister the current one
+                centroidTracker.deregister(activeArrowID)
 
-    if len(arrows) > 0:
-        # Draw centermost arrow, if any
-        if arrows[0].contour is not None:
-            cv2.drawContours(img, [arrows[0].contour], -1, (255, 255, 0), 3)
+            # The next arrow is now centered, make it the new active arrow
+            activeArrowID = nextArrow.id
+            lastActiveCentroid = nextArrow.centroid
+            flyingAngle = None
+            nextArrowID = -1
 
-        # Mark first arrow as active if tracking hasn't started
-        if activeArrowID == -1 and lookoutArea is None:
-            activeArrowID = arrows[0].id
+    # Move drone along the flying angle
+    if flyingAngle is not None:
+        cv2.putText(img, 'ANGLE: %d' % (flyingAngle), (img.shape[1] - 95, 25), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 0), 2)
+        goToAngle(flyingAngle)
 
     if lookoutArea is not None:
         cv2.drawContours(img, [lookoutArea], -1, (0, 255, 255), 1)
 
-        # TODO: Flight in arrows direction
-
         for arrow in arrows:
-            if arrow.id != activeArrowID:
-                inside = cv2.pointPolygonTest(lookoutArea, getTuplePoint(arrow.centroid), False)
+            # Discriminate against previously seen arrows
+            if arrow.id <= activeArrowID:
+                continue
 
-                if inside >= 0:
-                    # Arrow is inside the lookout area, mark it as active
-                    cv2.circle(img, getTuplePoint(arrow.centroid), 5, (255, 255, 0), -1)
+            inside = cv2.pointPolygonTest(lookoutArea, getTuplePoint(arrow.centroid), False)
+            if inside >= 0:
+                # Arrow is inside the lookout area, mark it as active
+                cv2.circle(img, getTuplePoint(arrow.centroid), 5, (255, 255, 0), -1)
 
-                    # Mark as active if arrow is inside both lookout area and target radius
-                    if arrow.distanceFromCenter < TARGET_RADIUS:
-                        activeArrowID = arrow.id
-
-                else:
-                    cv2.circle(img, getTuplePoint(arrow.centroid), 4, (0, 255, 0), -1)
+                # Mark the next target arrow
+                nextArrowID = arrow.id
+            else:
+                cv2.circle(img, getTuplePoint(arrow.centroid), 4, (255, 0, 0), -1)
 
 drone = None
 flightActivated = False
+flyingAngle = None
 lastCommand = -1
 
 sourceIsVideo = False
 arrowContour = getContours(cv2.imread('assets/arrow.png'))[0]
 
 centroidTracker = CentroidTracker()
+lastActiveCentroid = None
 activeArrowID = -1
+nextArrowID = -1
 lookoutArea = None
 
 if SOURCE == 0:
     videoCapture = cv2.VideoCapture(IP_WEBCAM)
 elif SOURCE == 1:
     videoCapture = cv2.VideoCapture('assets/arrow_photo.jpg')
+    videoCapture = cv2.VideoCapture('assets/arrows_area.png')
 elif SOURCE == 2 or SOURCE == 3 or SOURCE == 5:
     sourceIsVideo = True
     if SOURCE == 2:
@@ -497,7 +542,13 @@ while True:
         break
 
     elif key == ord('r'):
+        if activeArrowID != -1:
+            centroidTracker.deregister(activeArrowID)
+
+        # Clear all states and start again
         activeArrowID = -1
+        lastActiveCentroid = None
+        nextArrowID = -1
         lookoutArea = None
 
     elif key == 13: # Enter
